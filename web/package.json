@@ -1,0 +1,22 @@
+{
+  "name": "mdreader-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:themes": "bun run ../scripts/generate-themes.ts",
+    "build": "bun run build:themes && react-router build",
+    "dev": "bun run build:themes && react-router dev",
+    "typecheck": "react-router typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-router/node": "*",
+    "react": "*",
+    "react-dom": "*",
+    "react-router": "*",
+    "fumadocs-core": "*",
+    "fumadocs-ui": "*",
+    "lucide-react": "*",
+    "isbot": "*",
+    "shiki": "*"
+  }
+}

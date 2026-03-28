@@ -1,0 +1,79 @@
+{
+  "name": "mdreader",
+  "version": "0.1.0",
+  "description": "Browse local Markdown files in the browser with Fumadocs.",
+  "keywords": [
+    "markdown",
+    "docs",
+    "cli",
+    "fumadocs"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "bin": {
+    "mdreader": "dist/mdreader.js"
+  },
+  "files": [
+    "dist/mdreader.js",
+    "README.md"
+  ],
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "build:themes": "bun run scripts/generate-themes.ts",
+    "build:web": "bun run typecheck:all && bun run --cwd ./web build",
+    "build:bundle": "bun run build:web && bun run scripts/embed-assets.ts --bundle",
+    "build:compile": "bun run build:web && bun run scripts/embed-assets.ts --compile",
+    "build": "bun run build:bundle",
+    "dev": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "typecheck:web": "bun run --cwd ./web typecheck",
+    "typecheck:all": "bun run typecheck && bun run typecheck:web",
+    "knip": "knip",
+    "prepack": "bun run build"
+  },
+  "knip": {
+    "$schema": "https://unpkg.com/knip@6/schema.json",
+    "workspaces": {
+      ".": {
+        "entry": [
+          "scripts/*.ts"
+        ],
+        "project": [
+          "src/**/*.ts",
+          "scripts/**/*.ts"
+        ]
+      },
+      "web": {
+        "project": [
+          "src/**/*.{ts,tsx,css}"
+        ]
+      }
+    }
+  },
+  "devDependencies": {
+    "@react-router/dev": "^7",
+    "@tailwindcss/vite": "^4",
+    "@types/node": "^24.0.7",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "cleye": "^1.3.2",
+    "fumadocs-core": "latest",
+    "fumadocs-ui": "latest",
+    "knip": "^6.0.6",
+    "lucide-react": "latest",
+    "marked": "^15",
+    "mermaid": "^11.13.0",
+    "picoprint": "^1.0.6",
+    "react": "^19",
+    "react-dom": "^19",
+    "react-router": "^7",
+    "tailwindcss": "^4",
+    "typescript": "^5.8.3",
+    "vite": "^8",
+    "yaml": "^2"
+  }
+}
