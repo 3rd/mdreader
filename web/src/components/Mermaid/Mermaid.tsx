@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useThemeMode } from "@/hooks";
 import { HtmlContent } from "@/components/HtmlContent";
 import { DiagramModal } from "./components/DiagramModal/DiagramModal";
+import { useDiagramHighlight } from "./useDiagramHighlight";
 import { useRenderedDiagram } from "./useRenderedDiagram";
 
 interface MermaidProps {
@@ -12,6 +13,10 @@ export const Mermaid = ({ code }: MermaidProps) => {
   const themeMode = useThemeMode();
   const renderState = useRenderedDiagram(code, themeMode);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const activeSvg = renderState.status === "ready" ? renderState.svg : null;
+
+  useDiagramHighlight(containerRef, activeSvg);
 
   if (renderState.status === "error") {
     return (
@@ -32,7 +37,10 @@ export const Mermaid = ({ code }: MermaidProps) => {
 
   return (
     <>
-      <div className="group relative my-4 overflow-x-auto rounded-xl border border-fd-border bg-fd-card p-4 [&_svg]:mx-auto [&_svg]:max-w-full">
+      <div
+        ref={containerRef}
+        className="group relative my-4 overflow-x-auto rounded-xl border border-fd-border bg-fd-card p-4 [&_svg]:mx-auto [&_svg]:max-w-full"
+      >
         <button
           aria-label="Expand diagram"
           className="absolute top-2 right-2 z-10 p-1.5 rounded-lg shadow-sm opacity-0 transition-opacity group-hover:opacity-100 focus-visible:ring-2 focus-visible:opacity-100 focus-visible:outline-none bg-fd-background/80 text-fd-muted-foreground hover:bg-fd-accent hover:text-fd-accent-foreground focus-visible:ring-fd-ring"

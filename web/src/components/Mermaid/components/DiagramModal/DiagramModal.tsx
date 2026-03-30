@@ -1,5 +1,6 @@
-import type { MouseEvent } from "react";
+import { type MouseEvent, useRef, useState } from "react";
 import { HtmlContent } from "@/components/HtmlContent";
+import { useDiagramHighlight } from "../../useDiagramHighlight";
 import { useDiagramViewport } from "./useDiagramViewport";
 
 interface DiagramModalProps {
@@ -7,8 +8,15 @@ interface DiagramModalProps {
   svg: string;
 }
 
+const MODAL_BUTTON_CLASS_NAME =
+  "rounded-lg bg-fd-background/90 px-3 py-1.5 text-xs font-medium text-fd-foreground shadow-lg transition hover:bg-fd-accent focus-visible:ring-2 focus-visible:ring-fd-ring focus-visible:outline-none";
+
 export const DiagramModal = ({ onClose, svg }: DiagramModalProps) => {
   const { handleMouseDown, handleWheel, resetView, style } = useDiagramViewport(onClose);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isHighlightEnabled, setIsHighlightEnabled] = useState(true);
+
+  useDiagramHighlight(containerRef, svg, isHighlightEnabled);
 
   const handleBackdropClick = (event: MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) onClose();
@@ -24,15 +32,19 @@ export const DiagramModal = ({ onClose, svg }: DiagramModalProps) => {
     >
       <div className="absolute top-4 right-4 z-[60] flex gap-2">
         <button
-          className="rounded-lg bg-fd-background/90 px-3 py-1.5 text-xs font-medium text-fd-foreground shadow-lg transition hover:bg-fd-accent focus-visible:ring-2 focus-visible:ring-fd-ring focus-visible:outline-none"
+          aria-pressed={isHighlightEnabled}
+          className={MODAL_BUTTON_CLASS_NAME}
           type="button"
-          onClick={resetView}
+          onClick={() => setIsHighlightEnabled((value) => !value)}
         >
+          {isHighlightEnabled ? "Disable highlight" : "Enable highlight"}
+        </button>
+        <button className={MODAL_BUTTON_CLASS_NAME} type="button" onClick={resetView}>
           Reset
         </button>
         <button
           aria-label="Close expanded diagram"
-          className="rounded-lg bg-fd-background/90 px-3 py-1.5 text-xs font-medium text-fd-foreground shadow-lg transition hover:bg-fd-accent focus-visible:ring-2 focus-visible:ring-fd-ring focus-visible:outline-none"
+          className={MODAL_BUTTON_CLASS_NAME}
           type="button"
           onClick={onClose}
         >
@@ -40,6 +52,7 @@ export const DiagramModal = ({ onClose, svg }: DiagramModalProps) => {
         </button>
       </div>
       <div
+        ref={containerRef}
         className="h-full w-full cursor-grab select-none overflow-hidden active:cursor-grabbing"
         onMouseDown={handleMouseDown}
         onWheel={handleWheel}

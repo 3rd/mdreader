@@ -22,6 +22,7 @@ const HTML_LINE_BREAK_PATTERN = /<(?:\/(?:blockquote|div|h[1-6]|li|ol|p|pre|tabl
 const MARKDOWN_EXTENSION_PATTERN = /\.md$/;
 const INVALID_HEADING_ID_CHARS_PATTERN = /[^\s\w-]/g;
 const HEADING_WHITESPACE_PATTERN = /\s+/g;
+const NESTED_CODE_MARKER_PATTERN = /<!--mdreader-code-block:(\d+)-->/g;
 const TRAILING_NEWLINE_PATTERN = /\n$/;
 const SAFE_URL_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
 
@@ -46,6 +47,11 @@ interface Admonition {
   content: string;
   label: string;
   variant: (typeof ADMONITION_VARIANTS)[AdmonitionType];
+}
+
+interface MarkdownParserResult {
+  nestedCodeBlocks: CodeContentSegment[];
+  parser: Marked;
 }
 
 type AdmonitionType = keyof typeof ADMONITION_VARIANTS;
@@ -145,11 +151,6 @@ const getAdmonition = (rawBlockquote: string): Admonition | null => {
   return { content: body, label, variant };
 };
 
-const renderCodeBlockHtml = (token: CodeToken) => {
-  const className = token.lang ? ` class="language-${escapeHtml(token.lang)}"` : "";
-  return `<pre><code${className}>${escapeHtml(token.text)}</code></pre>`;
-};
-
 const htmlToPlainText = (html: string) => {
   return stripHtmlTags(html.replace(HTML_LINE_BREAK_PATTERN, "\n"))
     .replace(/\n{3,}/g, "\n\n")
@@ -189,16 +190,34 @@ const toCodeSegment = (token: CodeToken): CodeContentSegment => {
   };
 };
 
-const buildSegments = (tokens: Token[], markdownParser: Marked): ContentSegment[] => {
+const buildSegments = (tokens: Token[], parserResult: MarkdownParserResult): ContentSegment[] => {
+  const { nestedCodeBlocks, parser: markdownParser } = parserResult;
   const segments: ContentSegment[] = [];
   let bufferedTokens: Token[] = [];
 
   const flushBufferedTokens = () => {
     if (bufferedTokens.length === 0) return;
 
+    nestedCodeBlocks.length = 0;
     const html = String(markdownParser.parser(bufferedTokens));
-    if (html) segments.push({ type: "html", content: html });
     bufferedTokens = [];
+
+    if (!html) return;
+
+    if (nestedCodeBlocks.length === 0) {
+      segments.push({ type: "html", content: html });
+      return;
+    }
+
+    // split html at nested code block placeholders to create alternating html/code segments
+    const parts = html.split(NESTED_CODE_MARKER_PATTERN);
+    for (const [i, htmlPart] of parts.entries()) {
+      if (i % 2 === 0) {
+        if (htmlPart) segments.push({ type: "html", content: htmlPart });
+      } else {
+        segments.push(nestedCodeBlocks[Number(htmlPart)]);
+      }
+    }
   };
 
   for (const token of tokens) {
@@ -216,8 +235,9 @@ const buildSegments = (tokens: Token[], markdownParser: Marked): ContentSegment[
   return segments;
 };
 
-const createMarkdownParser = (toc: TocItem[]) => {
+const createMarkdownParser = (toc: TocItem[]): MarkdownParserResult => {
   const headingCounts = new Map<string, number>();
+  const nestedCodeBlocks: CodeContentSegment[] = [];
   let markdownParser: Marked | null = null;
 
   const renderNestedMarkdown = (content: string) => {
@@ -238,7 +258,10 @@ const createMarkdownParser = (toc: TocItem[]) => {
         return `<div class="fd-callout fd-callout-${admonition.variant}" data-type="${admonition.variant}"><p class="fd-callout-title">${admonition.label}</p><div>${contentHtml}</div></div>`;
       },
       code(token) {
-        return isCodeToken(token) ? renderCodeBlockHtml(token) : "";
+        if (!isCodeToken(token)) return "";
+        const index = nestedCodeBlocks.length;
+        nestedCodeBlocks.push(toCodeSegment(token));
+        return `<!--mdreader-code-block:${index}-->`;
       },
       heading(token) {
         const content = this.parser.parseInline(token.tokens);
@@ -270,7 +293,7 @@ const createMarkdownParser = (toc: TocItem[]) => {
     },
   });
 
-  return markdownParser;
+  return { nestedCodeBlocks, parser: markdownParser };
 };
 
 const buildPlainText = (segments: ContentSegment[]) => {
@@ -295,10 +318,11 @@ export const parseMarkdownFile = (fullPath: string, slug: string, slugs: string[
   const rawContent = readFileSync(fullPath, "utf8");
   const { frontmatter, body } = parseFrontmatter(rawContent);
   const toc: TocItem[] = [];
-  const markdownParser = createMarkdownParser(toc);
+  const parserResult = createMarkdownParser(toc);
+  const { parser: markdownParser } = parserResult;
   const tokens = markdownParser.lexer(body);
   const contentTokens = trimLeadingTitleHeading(tokens);
-  const segments = buildSegments(contentTokens, markdownParser);
+  const segments = buildSegments(contentTokens, parserResult);
   const title = extractTitle(frontmatter, markdownParser, tokens, slug);
   const order = extractOrder(frontmatter);
   const description = typeof frontmatter["description"] === "string" ? frontmatter["description"] : "";
