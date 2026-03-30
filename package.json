@@ -1,6 +1,6 @@
 {
   "name": "mdreader",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Browse local Markdown files in the browser with Fumadocs.",
   "keywords": [
     "markdown",
@@ -23,17 +23,17 @@
     "web"
   ],
   "scripts": {
+    "dev": "bun run build:web && bun --watch src/index.ts --watch",
     "build:themes": "bun run scripts/generate-themes.ts",
     "build:web": "bun run typecheck:all && bun run --cwd ./web build",
     "build:bundle": "bun run build:web && bun run scripts/embed-assets.ts --bundle",
     "build:compile": "bun run build:web && bun run scripts/embed-assets.ts --compile",
     "build": "bun run build:bundle",
-    "dev": "bun run src/index.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:web": "bun run --cwd ./web typecheck",
     "typecheck:all": "bun run typecheck && bun run typecheck:web",
-    "knip": "knip",
-    "prepack": "bun run build"
+    "prepack": "bun run build",
+    "knip": "knip"
   },
   "knip": {
     "$schema": "https://unpkg.com/knip@6/schema.json",

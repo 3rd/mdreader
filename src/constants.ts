@@ -10,11 +10,13 @@ export const API_TREE_JSON_PATH = "/api/tree.json";
 export const API_TREE_LEGACY_PATH = "/api/tree";
 export const API_SEARCH_INDEX_PATH = "/api/search-index.json";
 export const API_PAGE_PATH_PREFIX = "/api/page";
+export const API_PAGE_PREVIEW_PATH_PREFIX = "/api/page-preview";
 export const API_PAGE_EXPORT_PATH_PREFIX = "/api/export/page";
 export const API_PAGE_EXPORT_PATH = "/api/export/page";
 export const API_SITE_EXPORT_PATH = "/api/export/site";
 export const API_SITE_EXPORT_JSON_PATH = "/api/export/site.json";
 export const API_SEARCH_EXPORT_PATH = "/api/export/search";
+export const API_GRAPH_JSON_PATH = "/api/graph.json";
 
 export const IGNORED_DIRS = new Set([
   ".cache",

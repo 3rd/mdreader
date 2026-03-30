@@ -1,10 +1,17 @@
 import type { FileFilters, PageExportFormat, PageInfo } from "./types";
-import { API_PAGE_EXPORT_PATH_PREFIX, API_PAGE_PATH_PREFIX, IGNORED_DIRS } from "./constants";
+import {
+  API_GRAPH_JSON_PATH,
+  API_PAGE_EXPORT_PATH_PREFIX,
+  API_PAGE_PATH_PREFIX,
+  API_PAGE_PREVIEW_PATH_PREFIX,
+  IGNORED_DIRS,
+} from "./constants";
 
 const HTML_TAG_PATTERN = /<[^>]*>/g;
 const GLOB_ASTERISK_PATTERN = /\\\*\\\*/g;
 const GLOB_SINGLE_ASTERISK_PATTERN = /\\\*/g;
 const GLOB_QUESTION_PATTERN = /\\\?/g;
+const INDEX_PAGE_PATTERN = /(?:^|\/)index\.md$/;
 const SLUG_SEPARATOR_PATTERN = /[_-]/g;
 const TITLE_CASE_PATTERN = /\b\w/g;
 const WINDOWS_SEPARATOR_PATTERN = /\\/g;
@@ -40,11 +47,26 @@ export const pageDataPath = (slugPath: string) => {
   return `${API_PAGE_PATH_PREFIX}/${encodeSlugPath(slugPath || "index")}.json`;
 };
 
+export const pagePreviewPath = (slugPath: string) => {
+  return `${API_PAGE_PREVIEW_PATH_PREFIX}/${encodeSlugPath(slugPath || "index")}.json`;
+};
+
 export const pageExportPath = (slugPath: string, format: PageExportFormat) => {
   return `${API_PAGE_EXPORT_PATH_PREFIX}/${encodeSlugPath(slugPath || "index")}.${PAGE_EXPORT_EXTENSION_BY_FORMAT[format]}`;
 };
 
+export const graphDataPath = () => API_GRAPH_JSON_PATH;
+
 export const normalizePathSlashes = (value: string) => value.replace(WINDOWS_SEPARATOR_PATTERN, "/");
+
+export const slugPathFromMarkdownPath = (relativePath: string) => {
+  const normalizedPath = normalizePathSlashes(relativePath).replace(/^\.\//, "");
+  if (!normalizedPath) return "";
+  if (INDEX_PAGE_PATTERN.test(normalizedPath)) {
+    return normalizedPath.replace(INDEX_PAGE_PATTERN, "");
+  }
+  return normalizedPath.replace(/\.md$/, "");
+};
 
 const compileGlobPattern = (pattern: string): RegExp => {
   const cachedPattern = globPatternCache.get(pattern);

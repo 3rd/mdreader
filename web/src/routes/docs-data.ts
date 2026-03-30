@@ -4,10 +4,18 @@ import type {
   Node as DocsTreeNode,
   Root as DocsTreeRoot,
 } from "fumadocs-core/page-tree";
-import type { ContentSegment, PageDataPayload, TocItem } from "../../../src/types";
+import type {
+  BacklinkItem,
+  ContentSegment,
+  GraphDataPayload,
+  LastUpdatedInfo,
+  PageDataPayload,
+  PagePreviewPayload,
+  TocItem,
+} from "../../../src/types";
 import type { Route } from "./+types/docs";
 import { API_TREE_JSON_PATH } from "../../../src/constants";
-import { pageDataPath } from "../../../src/utils";
+import { graphDataPath, pageDataPath, pagePreviewPath } from "../../../src/utils";
 
 interface LoaderData {
   pagePath: string;
@@ -46,7 +54,35 @@ const parseContentSegment = (value: unknown): ContentSegment => {
     };
   }
 
+  if (segment.type === "slide-break") {
+    return { type: "slide-break" };
+  }
+
   throw new Error("invalid content segment");
+};
+
+const parseBacklinkItem = (value: unknown): BacklinkItem => {
+  const backlink = asRecord(value, "backlink");
+  if (typeof backlink.title !== "string" || typeof backlink.url !== "string") {
+    throw new TypeError("invalid backlink");
+  }
+
+  return {
+    title: backlink.title,
+    url: backlink.url,
+  };
+};
+
+const parseLastUpdatedInfo = (value: unknown): LastUpdatedInfo => {
+  const info = asRecord(value, "last updated info");
+  if (typeof info.at !== "string" || typeof info.commit !== "string") {
+    throw new TypeError("invalid last updated info");
+  }
+
+  return {
+    at: info.at,
+    commit: info.commit,
+  };
 };
 
 const parseTocItem = (value: unknown): TocItem => {
@@ -133,10 +169,68 @@ const parsePageData = (value: unknown): PageDataPayload => {
   }
 
   return {
+    backlinks: Array.isArray(page.backlinks) ? page.backlinks.map(parseBacklinkItem) : [],
+    lastUpdated: page.lastUpdated === undefined ? undefined : parseLastUpdatedInfo(page.lastUpdated),
     title: page.title,
     description: page.description,
     segments: page.segments.map(parseContentSegment),
     toc: page.toc.map(parseTocItem),
+  };
+};
+
+const parsePagePreview = (value: unknown): PagePreviewPayload => {
+  const preview = asRecord(value, "page preview");
+  if (
+    typeof preview.title !== "string" ||
+    typeof preview.description !== "string" ||
+    typeof preview.excerpt !== "string" ||
+    typeof preview.url !== "string"
+  ) {
+    throw new TypeError("invalid page preview");
+  }
+
+  return {
+    title: preview.title,
+    description: preview.description,
+    excerpt: preview.excerpt,
+    url: preview.url,
+  };
+};
+
+const parseGraphData = (value: unknown): GraphDataPayload => {
+  const graph = asRecord(value, "graph payload");
+  if (!Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
+    throw new TypeError("invalid graph payload");
+  }
+
+  return {
+    nodes: graph.nodes.map((node) => {
+      const parsedNode = asRecord(node, "graph node");
+      if (
+        typeof parsedNode.id !== "string" ||
+        typeof parsedNode.title !== "string" ||
+        typeof parsedNode.url !== "string"
+      ) {
+        throw new TypeError("invalid graph node");
+      }
+
+      return {
+        id: parsedNode.id,
+        title: parsedNode.title,
+        url: parsedNode.url,
+      };
+    }),
+    edges: graph.edges.map((edge) => {
+      const parsedEdge = asRecord(edge, "graph edge");
+      if (typeof parsedEdge.from !== "string" || typeof parsedEdge.to !== "string") {
+        throw new TypeError("invalid graph edge");
+      }
+
+      return {
+        from: parsedEdge.from,
+        to: parsedEdge.to,
+      };
+    }),
   };
 };
 
@@ -165,6 +259,10 @@ const getTreePayload = () => {
   });
   return cachedTreePayloadPromise;
 };
+
+export const fetchPagePreview = (slugPath: string) => fetchJson(pagePreviewPath(slugPath), parsePagePreview);
+
+export const fetchGraphData = () => fetchJson(graphDataPath(), parseGraphData);
 
 export const clientLoader = async ({ params }: Route.ClientLoaderArgs): Promise<LoaderData> => {
   const pagePath = params["*"]?.split("/").filter(Boolean).join("/") ?? "";

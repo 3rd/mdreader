@@ -124,7 +124,7 @@ const runServeCommand = async (argv: string[]) => {
   }
 
   if (watch) {
-    startWatcher(contentDir, filters, server.refresh, singleFile);
+    startWatcher(contentDir, filters, server.refresh, server.reloadClientAssets, singleFile);
   } else {
     console.log("");
   }
@@ -163,7 +163,7 @@ const runDoctorCommand = async (argv: string[]) => {
   try {
     if (singleFile) {
       const slug = path.basename(singleFile, path.extname(singleFile));
-      parseMarkdownFile(singleFile, slug, []);
+      parseMarkdownFile(singleFile, slug, [], contentDir, { servedSourcePath: singleFile });
       checks.push({
         status: "ok",
         label: "content",

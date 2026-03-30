@@ -8,8 +8,11 @@ import {
   encodeSlugPath,
   escapeHtml,
   hasExplicitUrlScheme,
+  hasIgnoredPathSegment,
   matchesFileFilters,
   normalizePathSlashes,
+  pageUrl,
+  slugPathFromMarkdownPath,
   stripHtmlTags,
   titleFromSlug,
 } from "../utils";
@@ -37,6 +40,7 @@ const ADMONITION_VARIANTS = {
 type Frontmatter = Record<string, unknown>;
 type CodeToken = Extract<Token, { type: "code" }>;
 type HeadingToken = Extract<Token, { type: "heading" }>;
+type HrToken = Extract<Token, { type: "hr" }>;
 
 interface FrontmatterResult {
   frontmatter: Frontmatter;
@@ -50,8 +54,20 @@ interface Admonition {
 }
 
 interface MarkdownParserResult {
+  internalLinkSlugs: Set<string>;
   nestedCodeBlocks: CodeContentSegment[];
   parser: Marked;
+}
+
+interface ParseMarkdownOptions {
+  servedSourcePath?: string;
+}
+
+interface ResolvedContentHref {
+  candidateBasePaths: string[];
+  hash: string;
+  resolvedContentDir: string;
+  search: string;
 }
 
 type AdmonitionType = keyof typeof ADMONITION_VARIANTS;
@@ -118,6 +134,8 @@ const isHeadingToken = (token: Token | undefined): token is HeadingToken => {
 const isCodeToken = (token: Token | undefined): token is CodeToken => {
   return token?.type === "code" && typeof token.text === "string";
 };
+
+const isHrToken = (token: Token | undefined): token is HrToken => token?.type === "hr";
 
 const resolveAdmonitionVariant = (type: string) => {
   const normalizedType = type.toUpperCase();
@@ -190,6 +208,139 @@ const toCodeSegment = (token: CodeToken): CodeContentSegment => {
   };
 };
 
+const isInsideDirectory = (directory: string, candidate: string) => {
+  return candidate === directory || candidate.startsWith(`${directory}${path.sep}`);
+};
+
+const getPathStat = (candidatePath: string) => statSync(candidatePath, { throwIfNoEntry: false });
+
+const getExistingDocPath = (candidatePath: string) => {
+  const candidateExt = path.extname(candidatePath).toLowerCase();
+
+  if (candidateExt) {
+    if (!MARKDOWN_EXTENSIONS.has(candidateExt)) return null;
+    const stat = getPathStat(candidatePath);
+    return stat?.isFile() ? candidatePath : null;
+  }
+
+  const markdownPath = `${candidatePath}.md`;
+  if (getPathStat(markdownPath)?.isFile()) return markdownPath;
+
+  const indexMarkdownPath = path.join(candidatePath, "index.md");
+  if (getPathStat(indexMarkdownPath)?.isFile()) return indexMarkdownPath;
+
+  return null;
+};
+
+const splitHrefParts = (value: string) => {
+  const hashIndex = value.indexOf("#");
+  const searchIndex = value.indexOf("?");
+  let pathEndIndex = -1;
+
+  if (hashIndex === -1) {
+    pathEndIndex = searchIndex;
+  } else if (searchIndex === -1) {
+    pathEndIndex = hashIndex;
+  } else {
+    pathEndIndex = Math.min(hashIndex, searchIndex);
+  }
+
+  const pathPart = pathEndIndex === -1 ? value : value.slice(0, pathEndIndex);
+  const search = searchIndex === -1 ? "" : value.slice(searchIndex, hashIndex === -1 ? undefined : hashIndex);
+  const hash = hashIndex === -1 ? "" : value.slice(hashIndex);
+
+  return { hash, pathPart, search };
+};
+
+const resolveContentHref = (
+  rawHref: string,
+  contentDir: string,
+  sourcePath: string,
+): ResolvedContentHref | null => {
+  const { hash, pathPart, search } = splitHrefParts(rawHref.trim());
+  if (!pathPart || pathPart.startsWith("//")) return null;
+  if (pathPart.startsWith("#") || pathPart.startsWith("?")) return null;
+
+  const isAbsolutePath = path.isAbsolute(pathPart);
+  if (!isAbsolutePath && hasExplicitUrlScheme(pathPart)) return null;
+
+  const resolvedContentDir = path.resolve(contentDir);
+  const resolvedSourceDir = path.dirname(path.resolve(sourcePath));
+  const candidateBasePaths =
+    isAbsolutePath ?
+      [path.resolve(pathPart), path.resolve(resolvedContentDir, `.${pathPart}`)]
+    : [path.resolve(resolvedSourceDir, pathPart)];
+
+  return {
+    candidateBasePaths,
+    hash,
+    resolvedContentDir,
+    search,
+  };
+};
+
+const resolveMarkdownLink = (
+  rawHref: string,
+  contentDir: string,
+  sourcePath: string,
+  options: ParseMarkdownOptions,
+) => {
+  const resolvedHref = resolveContentHref(rawHref, contentDir, sourcePath);
+  if (!resolvedHref) return null;
+
+  const { candidateBasePaths, hash, resolvedContentDir, search } = resolvedHref;
+  let docPath: string | null = null;
+
+  for (const candidateBasePath of candidateBasePaths) {
+    if (!isInsideDirectory(resolvedContentDir, candidateBasePath)) continue;
+
+    docPath = getExistingDocPath(candidateBasePath);
+    if (docPath) break;
+  }
+
+  if (!docPath) return null;
+
+  const servedSourcePath = options.servedSourcePath ? path.resolve(options.servedSourcePath) : null;
+  if (servedSourcePath) {
+    if (docPath !== servedSourcePath) return null;
+
+    return {
+      href: `${pageUrl("")}${search}${hash}`,
+      slugPath: "",
+    };
+  }
+
+  const relativeDocPath = normalizePathSlashes(path.relative(resolvedContentDir, docPath));
+  const slugPath = slugPathFromMarkdownPath(relativeDocPath);
+
+  return {
+    href: `${pageUrl(slugPath)}${search}${hash}`,
+    slugPath,
+  };
+};
+
+const resolveContentAssetHref = (rawHref: string, contentDir: string, sourcePath: string) => {
+  const resolvedHref = resolveContentHref(rawHref, contentDir, sourcePath);
+  if (!resolvedHref) return null;
+
+  const { candidateBasePaths, hash, resolvedContentDir, search } = resolvedHref;
+
+  for (const candidateBasePath of candidateBasePaths) {
+    if (!isInsideDirectory(resolvedContentDir, candidateBasePath)) continue;
+
+    const candidateExt = path.extname(candidateBasePath).toLowerCase();
+    if (!candidateExt || MARKDOWN_EXTENSIONS.has(candidateExt)) continue;
+    if (!getPathStat(candidateBasePath)?.isFile()) continue;
+
+    const relativeAssetPath = normalizePathSlashes(path.relative(resolvedContentDir, candidateBasePath));
+    if (!relativeAssetPath || hasIgnoredPathSegment(relativeAssetPath)) continue;
+
+    return `/${encodeSlugPath(relativeAssetPath)}${search}${hash}`;
+  }
+
+  return null;
+};
+
 const buildSegments = (tokens: Token[], parserResult: MarkdownParserResult): ContentSegment[] => {
   const { nestedCodeBlocks, parser: markdownParser } = parserResult;
   const segments: ContentSegment[] = [];
@@ -221,6 +372,12 @@ const buildSegments = (tokens: Token[], parserResult: MarkdownParserResult): Con
   };
 
   for (const token of tokens) {
+    if (isHrToken(token)) {
+      flushBufferedTokens();
+      segments.push({ type: "slide-break" });
+      continue;
+    }
+
     if (!isCodeToken(token)) {
       bufferedTokens.push(token);
       continue;
@@ -235,8 +392,14 @@ const buildSegments = (tokens: Token[], parserResult: MarkdownParserResult): Con
   return segments;
 };
 
-const createMarkdownParser = (toc: TocItem[]): MarkdownParserResult => {
+const createMarkdownParser = (
+  contentDir: string,
+  sourcePath: string,
+  toc: TocItem[],
+  options: ParseMarkdownOptions,
+): MarkdownParserResult => {
   const headingCounts = new Map<string, number>();
+  const internalLinkSlugs = new Set<string>();
   const nestedCodeBlocks: CodeContentSegment[] = [];
   let markdownParser: Marked | null = null;
 
@@ -284,21 +447,34 @@ const createMarkdownParser = (toc: TocItem[]): MarkdownParserResult => {
       image(token) {
         if (!isSafeUrl(token.href)) return escapeHtml(token.text);
 
-        return `<img src="${escapeHtml(token.href)}" alt="${escapeHtml(token.text)}"${renderLinkTitle(token.title ?? null)}>`;
+        const src = resolveContentAssetHref(token.href, contentDir, sourcePath) ?? token.href;
+        return `<img src="${escapeHtml(src)}" alt="${escapeHtml(token.text)}"${renderLinkTitle(token.title ?? null)}>`;
       },
       link(token) {
-        const href = isSafeUrl(token.href) ? token.href : "#";
+        if (!isSafeUrl(token.href)) {
+          return `<a href="#">${this.parser.parseInline(token.tokens)}</a>`;
+        }
+
+        const resolvedLink = resolveMarkdownLink(token.href, contentDir, sourcePath, options);
+        if (resolvedLink) internalLinkSlugs.add(resolvedLink.slugPath);
+
+        const href =
+          resolvedLink?.href ?? resolveContentAssetHref(token.href, contentDir, sourcePath) ?? token.href;
         return `<a href="${escapeHtml(href)}"${renderLinkTitle(token.title ?? null)}>${this.parser.parseInline(token.tokens)}</a>`;
       },
     },
   });
 
-  return { nestedCodeBlocks, parser: markdownParser };
+  return { internalLinkSlugs, nestedCodeBlocks, parser: markdownParser };
 };
 
 const buildPlainText = (segments: ContentSegment[]) => {
   return segments
-    .map((segment) => (segment.type === "html" ? htmlToPlainText(segment.content) : segment.code))
+    .map((segment) => {
+      if (segment.type === "html") return htmlToPlainText(segment.content);
+      if (segment.type === "slide-break") return "";
+      return segment.code;
+    })
     .join("\n")
     .trim();
 };
@@ -314,12 +490,18 @@ const extractOrder = (frontmatter: Frontmatter) => {
   return typeof frontmatter["order"] === "number" ? frontmatter["order"] : DEFAULT_ORDER;
 };
 
-export const parseMarkdownFile = (fullPath: string, slug: string, slugs: string[]): PageInfo => {
+export const parseMarkdownFile = (
+  fullPath: string,
+  slug: string,
+  slugs: string[],
+  contentDir: string,
+  options: ParseMarkdownOptions = {},
+): PageInfo => {
   const rawContent = readFileSync(fullPath, "utf8");
   const { frontmatter, body } = parseFrontmatter(rawContent);
   const toc: TocItem[] = [];
-  const parserResult = createMarkdownParser(toc);
-  const { parser: markdownParser } = parserResult;
+  const parserResult = createMarkdownParser(contentDir, fullPath, toc, options);
+  const { internalLinkSlugs, parser: markdownParser } = parserResult;
   const tokens = markdownParser.lexer(body);
   const contentTokens = trimLeadingTitleHeading(tokens);
   const segments = buildSegments(contentTokens, parserResult);
@@ -328,6 +510,9 @@ export const parseMarkdownFile = (fullPath: string, slug: string, slugs: string[
   const description = typeof frontmatter["description"] === "string" ? frontmatter["description"] : "";
 
   return {
+    backlinks: [],
+    internalLinks: [...internalLinkSlugs],
+    lastUpdated: undefined,
     slug,
     slugs,
     title,
@@ -387,7 +572,7 @@ export const scanMarkdownFiles = (
 
       encodedSlugPaths.add(encodedSlugPath);
       pages.set(slugPath, {
-        ...parseMarkdownFile(fullPath, slug, slugs),
+        ...parseMarkdownFile(fullPath, slug, slugs, directory),
         relativePath,
         sourcePath: fullPath,
       });

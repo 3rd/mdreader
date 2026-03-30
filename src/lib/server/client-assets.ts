@@ -19,6 +19,7 @@ export interface ClientAssetsStore {
   getClientAppResponse: (pathname: string, theme: Theme) => RouteResponse;
   getClientAssetStatus: () => { ok: false; message: string } | { ok: true };
   getClientAssets: () => EmbeddedAssets;
+  invalidate: () => void;
 }
 
 const injectTheme = (html: string, theme: Theme) => {
@@ -107,6 +108,9 @@ export const createClientAssetsStore = (): ClientAssetsStore => {
 
   return {
     getClientAssets,
+    invalidate: () => {
+      resolvedAssets = null;
+    },
     getClientAssetStatus: () => {
       try {
         getClientAssets();

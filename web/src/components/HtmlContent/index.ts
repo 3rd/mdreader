@@ -1,1 +1,1 @@
-export { HtmlContent } from "./HtmlContent";
+export { HtmlContent, invalidateLinkPreviewCache } from "./HtmlContent";

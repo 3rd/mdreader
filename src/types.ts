@@ -9,7 +9,21 @@ export interface HtmlContentSegment {
   content: string;
 }
 
-export type ContentSegment = CodeContentSegment | HtmlContentSegment;
+export interface SlideBreakContentSegment {
+  type: "slide-break";
+}
+
+export type ContentSegment = CodeContentSegment | HtmlContentSegment | SlideBreakContentSegment;
+
+export interface BacklinkItem {
+  title: string;
+  url: string;
+}
+
+export interface LastUpdatedInfo {
+  at: string;
+  commit: string;
+}
 
 export interface TocItem {
   title: string;
@@ -18,6 +32,9 @@ export interface TocItem {
 }
 
 export interface PageInfo {
+  backlinks: BacklinkItem[];
+  internalLinks: string[];
+  lastUpdated?: LastUpdatedInfo;
   slug: string;
   slugs: string[];
   title: string;
@@ -31,10 +48,19 @@ export interface PageInfo {
 }
 
 export interface PageDataPayload {
+  backlinks: BacklinkItem[];
+  lastUpdated?: LastUpdatedInfo;
   title: string;
   description: string;
   segments: ContentSegment[];
   toc: TocItem[];
+}
+
+export interface PagePreviewPayload {
+  description: string;
+  excerpt: string;
+  title: string;
+  url: string;
 }
 
 export interface PageTreePageNode {
@@ -65,6 +91,22 @@ export interface PageTree {
 export interface TreeDataPayload {
   siteTitle: string;
   tree: PageTree;
+}
+
+export interface GraphNode {
+  id: string;
+  title: string;
+  url: string;
+}
+
+export interface GraphEdge {
+  from: string;
+  to: string;
+}
+
+export interface GraphDataPayload {
+  edges: GraphEdge[];
+  nodes: GraphNode[];
 }
 
 export interface SearchResult {

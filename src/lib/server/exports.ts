@@ -1,6 +1,17 @@
 import { readFileSync } from "node:fs";
-import type { PageDataPayload, PageExportFormat, PageInfo, PageTree } from "../../types";
-import { API_PAGE_EXPORT_PATH_PREFIX, API_PAGE_PATH_PREFIX } from "../../constants";
+import type {
+  GraphDataPayload,
+  PageDataPayload,
+  PageExportFormat,
+  PageInfo,
+  PagePreviewPayload,
+  PageTree,
+} from "../../types";
+import {
+  API_PAGE_EXPORT_PATH_PREFIX,
+  API_PAGE_PATH_PREFIX,
+  API_PAGE_PREVIEW_PATH_PREFIX,
+} from "../../constants";
 import { isPageExportFormat } from "../../types";
 import { decodeSlugPath, escapeHtml, pageUrl } from "../../utils";
 import { searchPages } from "../search";
@@ -14,6 +25,7 @@ import {
   textResponse,
 } from "./responses";
 
+const PAGE_PREVIEW_EXCERPT_LENGTH = 220;
 const PAGE_EXPORT_EXTENSION_BY_SUFFIX = {
   ".html": "html",
   ".json": "json",
@@ -31,12 +43,29 @@ interface PageExportJsonPayload extends PageDataPayload {
   url: string;
 }
 
+const buildPreviewExcerpt = (value: string) => {
+  const excerpt = value.trim();
+  if (excerpt.length <= PAGE_PREVIEW_EXCERPT_LENGTH) return excerpt;
+  return `${excerpt.slice(0, PAGE_PREVIEW_EXCERPT_LENGTH).trimEnd()}...`;
+};
+
 const toPageDataPayload = (page: PageInfo): PageDataPayload => {
   return {
+    backlinks: page.backlinks,
+    lastUpdated: page.lastUpdated,
     title: page.title,
     description: page.description,
     segments: page.segments,
     toc: page.toc,
+  };
+};
+
+const toPagePreviewPayload = (page: PageInfo, slugPath: string): PagePreviewPayload => {
+  return {
+    description: page.description,
+    excerpt: buildPreviewExcerpt(page.plainText || page.description),
+    title: page.title,
+    url: pageUrl(slugPath),
   };
 };
 
@@ -64,9 +93,11 @@ const createRootPageExportJsonPayload = (
     .join("");
 
   return {
+    backlinks: [],
     description: siteDescription,
     relativePath: "",
     segments: [createHtmlSegment(`<ul>${indexLinks}</ul>`)],
+    lastUpdated: undefined,
     slug: "",
     title: siteTitle,
     toc: [],
@@ -76,8 +107,10 @@ const createRootPageExportJsonPayload = (
 
 const buildPageIndexResponse = (pages: Map<string, PageInfo>, siteDescription: string, siteTitle: string) =>
   jsonResponse<PageDataPayload>({
+    backlinks: [],
     title: siteTitle,
     description: siteDescription,
+    lastUpdated: undefined,
     segments: [
       createHtmlSegment(
         `<ul>\n${Array.from(pages.values())
@@ -105,13 +138,48 @@ export const getPageResponse = (
   return textResponse("Not Found", 404);
 };
 
+const getRootPagePreviewResponse = (
+  pages: Map<string, PageInfo>,
+  siteDescription: string,
+  siteTitle: string,
+) => {
+  const excerpt = buildPreviewExcerpt(
+    siteDescription ||
+      Array.from(pages.values(), (page) => page.title)
+        .slice(0, 6)
+        .join(" • "),
+  );
+
+  return jsonResponse<PagePreviewPayload>({
+    description: siteDescription,
+    excerpt,
+    title: siteTitle,
+    url: "/",
+  });
+};
+
+export const getPagePreviewResponse = (
+  slugPath: string,
+  pages: Map<string, PageInfo>,
+  siteDescription: string,
+  siteTitle: string,
+) => {
+  const page = pages.get(slugPath);
+  if (page) return jsonResponse(toPagePreviewPayload(page, slugPath));
+  if (slugPath === "") return getRootPagePreviewResponse(pages, siteDescription, siteTitle);
+  return textResponse("Not Found", 404);
+};
+
+export const getGraphResponse = jsonResponse<GraphDataPayload>;
+
 const renderSegmentsAsHtml = (page: PageInfo) => {
   return page.segments
-    .map((segment) =>
-      segment.type === "html" ?
-        segment.content
-      : `<pre><code class="language-${escapeHtml(segment.lang)}">${escapeHtml(segment.code)}</code></pre>`,
-    )
+    .map((segment) => {
+      if (segment.type === "html") return segment.content;
+      if (segment.type === "slide-break") return "<hr>";
+
+      return `<pre><code class="language-${escapeHtml(segment.lang)}">${escapeHtml(segment.code)}</code></pre>`;
+    })
     .join("\n");
 };
 
@@ -312,11 +380,11 @@ export const getSearchExportResponse = (format: string, pages: Map<string, PageI
   );
 };
 
-export const getPageSlugFromRequest = (pathname: string) => {
-  if (pathname === API_PAGE_PATH_PREFIX || pathname === `${API_PAGE_PATH_PREFIX}/`) return "";
-  if (!pathname.startsWith(`${API_PAGE_PATH_PREFIX}/`)) return null;
+function getJsonSlugFromRequest(pathname: string, prefix: string) {
+  if (pathname === prefix || pathname === `${prefix}/`) return "";
+  if (!pathname.startsWith(`${prefix}/`)) return null;
 
-  const rawPath = pathname.slice(`${API_PAGE_PATH_PREFIX}/`.length);
+  const rawPath = pathname.slice(`${prefix}/`.length);
   if (!rawPath) return "";
 
   if (rawPath.endsWith(".json")) {
@@ -326,6 +394,14 @@ export const getPageSlugFromRequest = (pathname: string) => {
   }
 
   return decodeSlugPath(rawPath);
+}
+
+export const getPageSlugFromRequest = (pathname: string) => {
+  return getJsonSlugFromRequest(pathname, API_PAGE_PATH_PREFIX);
+};
+
+export const getPagePreviewSlugFromRequest = (pathname: string) => {
+  return getJsonSlugFromRequest(pathname, API_PAGE_PREVIEW_PATH_PREFIX);
 };
 
 export const parseStaticPageExportPath = (pathname: string): StaticPageExportRequest | null => {

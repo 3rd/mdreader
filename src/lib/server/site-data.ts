@@ -1,9 +1,13 @@
 import { initAdvancedSearch } from "fumadocs-core/search/server";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
-import type { FileFilters, PageInfo, PageTree } from "../../types";
-import { getPagePlainText, pageUrl, titleFromSlug } from "../../utils";
+import type { FileFilters, GraphDataPayload, PageInfo, PageTree } from "../../types";
+import { getPagePlainText, normalizePathSlashes, pageUrl, titleFromSlug } from "../../utils";
 import { parseMarkdownFile, scanMarkdownFiles } from "../parser";
 import { buildPageTree } from "../tree";
+
+const GIT_LOG_LAST_UPDATED_FORMAT = "%H\t%cI";
+const GIT_LOG_COMMIT_PREFIX = "commit\t";
 
 const getBreadcrumbs = (page: PageInfo, siteTitle: string) => {
   if (page.slug === "index") return [siteTitle, ...page.slugs.map(titleFromSlug)];
@@ -38,12 +42,14 @@ const buildSearchIndex = async (pages: Map<string, PageInfo>, siteTitle: string)
 type SearchIndex = Awaited<ReturnType<typeof buildSearchIndex>>;
 
 interface SiteData {
+  graph: GraphDataPayload;
   pageTree: PageTree;
   pages: Map<string, PageInfo>;
   searchIndex: SearchIndex;
 }
 
 export interface SiteDataStore {
+  getGraphData: () => GraphDataPayload;
   getPageTree: () => PageTree;
   getPages: () => Map<string, PageInfo>;
   getSearchIndex: () => SearchIndex;
@@ -59,9 +65,117 @@ const loadPages = (contentDir: string, filters: FileFilters, singleFile?: string
   if (!singleFile) return scanMarkdownFiles(contentDir, filters);
 
   const slug = path.basename(singleFile, path.extname(singleFile));
-  const page = parseMarkdownFile(singleFile, slug, []);
+  const page = parseMarkdownFile(singleFile, slug, [], contentDir, { servedSourcePath: singleFile });
 
   return new Map([["", { ...page, relativePath: path.basename(singleFile), sourcePath: singleFile }]]);
+};
+
+const getLastUpdatedBySourcePath = (contentDir: string, sourcePaths: string[]) => {
+  const sourcePathByRelativePath = new Map<string, string>();
+
+  for (const sourcePath of sourcePaths) {
+    const relativeSourcePath = normalizePathSlashes(path.relative(contentDir, sourcePath));
+    if (!relativeSourcePath || relativeSourcePath.startsWith("../")) continue;
+    sourcePathByRelativePath.set(relativeSourcePath, sourcePath);
+  }
+
+  if (sourcePathByRelativePath.size === 0) return new Map<string, NonNullable<PageInfo["lastUpdated"]>>();
+
+  try {
+    const output = execFileSync(
+      "git",
+      [
+        "log",
+        `--format=${GIT_LOG_COMMIT_PREFIX}${GIT_LOG_LAST_UPDATED_FORMAT}`,
+        "--name-only",
+        "--",
+        ...sourcePathByRelativePath.keys(),
+      ],
+      {
+        cwd: contentDir,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    );
+    const lastUpdatedBySourcePath = new Map<string, NonNullable<PageInfo["lastUpdated"]>>();
+    let currentCommit = "";
+    let currentAt = "";
+
+    for (const line of output.split(/\r?\n/)) {
+      if (!line) continue;
+
+      if (line.startsWith(GIT_LOG_COMMIT_PREFIX)) {
+        const [commit = "", at = ""] = line.slice(GIT_LOG_COMMIT_PREFIX.length).split("\t");
+        currentCommit = commit;
+        currentAt = at;
+        continue;
+      }
+
+      if (!currentCommit || !currentAt) continue;
+
+      const sourcePath = sourcePathByRelativePath.get(normalizePathSlashes(line));
+      if (!sourcePath || lastUpdatedBySourcePath.has(sourcePath)) continue;
+
+      lastUpdatedBySourcePath.set(sourcePath, { at: currentAt, commit: currentCommit });
+      if (lastUpdatedBySourcePath.size === sourcePathByRelativePath.size) break;
+    }
+
+    return lastUpdatedBySourcePath;
+  } catch {
+    // git metadata is optional
+    return new Map<string, NonNullable<PageInfo["lastUpdated"]>>();
+  }
+};
+
+const enrichPages = (contentDir: string, pages: Map<string, PageInfo>): GraphDataPayload => {
+  const backlinksBySlug = new Map<string, PageInfo["backlinks"]>();
+  const graphEdgeIds = new Set<string>();
+  const edges: GraphDataPayload["edges"] = [];
+  const lastUpdatedBySourcePath = getLastUpdatedBySourcePath(
+    contentDir,
+    Array.from(pages.values(), (page) => page.sourcePath),
+  );
+
+  for (const [sourceSlug, page] of pages) {
+    page.backlinks = [];
+    page.lastUpdated = lastUpdatedBySourcePath.get(page.sourcePath);
+
+    const seenTargets = new Set<string>();
+    for (const targetSlug of page.internalLinks) {
+      if (sourceSlug === targetSlug || seenTargets.has(targetSlug) || !pages.has(targetSlug)) continue;
+      seenTargets.add(targetSlug);
+
+      const backlinks = backlinksBySlug.get(targetSlug) ?? [];
+      backlinks.push({
+        title: page.title,
+        url: pageUrl(sourceSlug),
+      });
+      backlinksBySlug.set(targetSlug, backlinks);
+
+      const sourceId = pageUrl(sourceSlug);
+      const targetId = pageUrl(targetSlug);
+      const [edgeFrom, edgeTo] =
+        sourceId.localeCompare(targetId) <= 0 ? [sourceId, targetId] : [targetId, sourceId];
+      const edgeId = `${edgeFrom}\u0000${edgeTo}`;
+      if (graphEdgeIds.has(edgeId)) continue;
+
+      graphEdgeIds.add(edgeId);
+      edges.push({ from: edgeFrom, to: edgeTo });
+    }
+  }
+
+  for (const [slugPath, page] of pages) {
+    page.backlinks = (backlinksBySlug.get(slugPath) ?? []).toSorted((a, b) => a.title.localeCompare(b.title));
+  }
+
+  return {
+    edges,
+    nodes: Array.from(pages.entries(), ([slugPath, page]) => ({
+      id: pageUrl(slugPath),
+      title: page.title,
+      url: pageUrl(slugPath),
+    })),
+  };
 };
 
 export const loadSiteData = async (
@@ -71,8 +185,10 @@ export const loadSiteData = async (
   singleFile?: string,
 ): Promise<SiteData> => {
   const pages = loadPages(contentDir, filters, singleFile);
+  const graph = enrichPages(contentDir, pages);
 
   return {
+    graph,
     pages,
     pageTree: buildPageTree(pages, siteTitle),
     searchIndex: await buildSearchIndex(pages, siteTitle),
@@ -89,6 +205,7 @@ export const createSiteDataStore = (): SiteDataStore => {
   let refreshVersion = 0;
 
   return {
+    getGraphData: () => getSiteData(currentSiteData).graph,
     getPages: () => getSiteData(currentSiteData).pages,
     getPageTree: () => getSiteData(currentSiteData).pageTree,
     getSearchIndex: () => getSiteData(currentSiteData).searchIndex,

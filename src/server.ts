@@ -4,6 +4,7 @@ import path from "node:path";
 import type { FileFilters, PageInfo, PageTree, Theme, TreeDataPayload } from "./types";
 import {
   API_EVENTS_PATH,
+  API_GRAPH_JSON_PATH,
   API_PAGE_EXPORT_PATH,
   API_SEARCH_EXPORT_PATH,
   API_SEARCH_INDEX_PATH,
@@ -22,7 +23,10 @@ import {
   setEmbeddedAssets,
 } from "./lib/server/client-assets";
 import {
+  getGraphResponse,
   getPageExportResponse,
+  getPagePreviewResponse,
+  getPagePreviewSlugFromRequest,
   getPageResponse,
   getPageSlugFromRequest,
   getSearchExportResponse,
@@ -52,6 +56,7 @@ interface MdreaderServer {
   port: number;
   close: () => Promise<void>;
   refresh: () => Promise<void>;
+  reloadClientAssets: () => Promise<void>;
 }
 
 interface ServerRuntime {
@@ -61,6 +66,7 @@ interface ServerRuntime {
 }
 
 interface RequestSnapshot {
+  graph: ReturnType<SiteDataStore["getGraphData"]>;
   pageTree: PageTree;
   pages: Map<string, PageInfo>;
   searchIndex: ReturnType<SiteDataStore["getSearchIndex"]>;
@@ -153,6 +159,23 @@ const handlePageRoute = ({ pathname, response, pages, siteDescription, siteTitle
   const pageSlug = getPageSlugFromRequest(pathname);
   if (pageSlug === null) return false;
   return writePayload(response, getPageResponse(pageSlug, pages, siteDescription, siteTitle));
+};
+
+const handlePagePreviewRoute = ({
+  pathname,
+  response,
+  pages,
+  siteDescription,
+  siteTitle,
+}: RequestContext) => {
+  const pageSlug = getPagePreviewSlugFromRequest(pathname);
+  if (pageSlug === null) return false;
+  return writePayload(response, getPagePreviewResponse(pageSlug, pages, siteDescription, siteTitle));
+};
+
+const handleGraphRoute = ({ pathname, response, graph }: RequestContext) => {
+  if (pathname !== API_GRAPH_JSON_PATH) return false;
+  return writePayload(response, getGraphResponse(graph));
 };
 
 const handleStaticPageExportRoute = ({
@@ -251,6 +274,11 @@ const refreshServerContent = async (
   if (didCommit) runtime.liveReloadChannel.notifyReload();
 };
 
+const reloadServerClientAssets = async (runtime: ServerRuntime) => {
+  runtime.clientAssetsStore.invalidate();
+  runtime.liveReloadChannel.notifyReload("hard-reload");
+};
+
 export const startServer = async (options: ServerOptions): Promise<MdreaderServer> => {
   const { contentDir, filters, host, singleFile, port, siteDescription, siteTitle, theme } = options;
   const runtime = createServerRuntime();
@@ -260,6 +288,7 @@ export const startServer = async (options: ServerOptions): Promise<MdreaderServe
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
     const snapshot: RequestSnapshot = {
+      graph: runtime.siteDataStore.getGraphData(),
       pages: runtime.siteDataStore.getPages(),
       pageTree: runtime.siteDataStore.getPageTree(),
       searchIndex: runtime.siteDataStore.getSearchIndex(),
@@ -278,6 +307,8 @@ export const startServer = async (options: ServerOptions): Promise<MdreaderServe
 
     if (handleTreeRoute(requestContext)) return;
     if (handlePageRoute(requestContext)) return;
+    if (handlePagePreviewRoute(requestContext)) return;
+    if (handleGraphRoute(requestContext)) return;
     if (handleStaticPageExportRoute(requestContext)) return;
     if (handleExportRoute(requestContext)) return;
     if (handleSearchRoute(requestContext)) return;
@@ -312,5 +343,6 @@ export const startServer = async (options: ServerOptions): Promise<MdreaderServe
         });
       }),
     refresh: () => refreshServerContent(runtime, { contentDir, filters, siteTitle, singleFile }),
+    reloadClientAssets: () => reloadServerClientAssets(runtime),
   };
 };

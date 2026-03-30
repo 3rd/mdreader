@@ -4,7 +4,7 @@ import { EVENT_STREAM_CONTENT_TYPE } from "./responses";
 export interface LiveReloadChannel {
   close: () => void;
   handleEventStreamRequest: (request: IncomingMessage, response: ServerResponse) => void;
-  notifyReload: () => void;
+  notifyReload: (kind?: "hard-reload" | "reload") => void;
 }
 
 export const createLiveReloadChannel = (): LiveReloadChannel => {
@@ -21,10 +21,10 @@ export const createLiveReloadChannel = (): LiveReloadChannel => {
       }
       sseClients.clear();
     },
-    notifyReload: () => {
+    notifyReload: (kind = "reload") => {
       for (const response of sseClients) {
         try {
-          response.write("data: reload\n\n");
+          response.write(`data: ${kind}\n\n`);
         } catch {
           sseClients.delete(response);
         }

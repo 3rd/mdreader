@@ -2,6 +2,7 @@ import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "n
 import path from "node:path";
 import type { FileFilters, Theme, TreeDataPayload } from "../../types";
 import {
+  API_GRAPH_JSON_PATH,
   API_SEARCH_INDEX_PATH,
   API_SITE_EXPORT_JSON_PATH,
   API_TREE_JSON_PATH,
@@ -14,9 +15,16 @@ import {
   normalizePathSlashes,
   pageDataPath,
   pageExportPath,
+  pagePreviewPath,
 } from "../../utils";
 import { createClientAssetsStore, renderClientShell } from "./client-assets";
-import { getPageExportResponse, getPageResponse, getSiteExportResponse } from "./exports";
+import {
+  getGraphResponse,
+  getPageExportResponse,
+  getPagePreviewResponse,
+  getPageResponse,
+  getSiteExportResponse,
+} from "./exports";
 import { jsonResponse, type RouteResponse } from "./responses";
 import { loadSiteData } from "./site-data";
 
@@ -120,6 +128,7 @@ export const buildStaticSite = async (options: BuildOptions): Promise<StaticBuil
   copyContentAssets(contentDir, resolvedOutputDir);
 
   const treePayload: TreeDataPayload = { tree: siteData.pageTree, siteTitle };
+  writeRoutePayload(resolvedOutputDir, API_GRAPH_JSON_PATH, getGraphResponse(siteData.graph));
   writeRoutePayload(resolvedOutputDir, API_TREE_JSON_PATH, jsonResponse(treePayload));
   writeRoutePayload(resolvedOutputDir, API_SEARCH_INDEX_PATH, jsonResponse(siteData.searchIndex));
   writeRoutePayload(
@@ -134,6 +143,11 @@ export const buildStaticSite = async (options: BuildOptions): Promise<StaticBuil
       resolvedOutputDir,
       pageDataPath(slugPath),
       getPageResponse(slugPath, siteData.pages, siteDescription, siteTitle),
+    );
+    writeRoutePayload(
+      resolvedOutputDir,
+      pagePreviewPath(slugPath),
+      getPagePreviewResponse(slugPath, siteData.pages, siteDescription, siteTitle),
     );
 
     for (const format of PAGE_EXPORT_FORMATS) {
