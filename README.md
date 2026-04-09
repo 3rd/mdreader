@@ -78,7 +78,7 @@ Validate your docs setup. Checks:
 | `--include <glob>` | Only include files matching a glob (repeatable) |
 | `--exclude <glob>` | Exclude files matching a glob (repeatable) |
 
-Exits with code 1 if any check fails.
+Exits with code 1 if any check fails. It also warns when a docs directory does not have a root landing page file (`index.md`, `INDEX.md`, or `README.md`).
 
 ### `mdreader init [target]`
 
@@ -145,7 +145,7 @@ order: 1
 - Fenced code blocks with syntax highlighting (via [Shiki](https://shiki.style/))
 - Mermaid diagram code fences (with expand/zoom)
 - GitHub-style callouts: `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`
-- Nested directory trees with `index.md` as folder landing pages
+- Nested directory trees with `index.md` as the preferred folder landing page, with `INDEX.md` and `README.md` as fallbacks when `index.md` is missing
 - Full-text search with `Cmd+K` / `Ctrl+K`
 - Per-page actions menu (copy link, print, export as Markdown/HTML/JSON)
 
@@ -175,4 +175,3 @@ The server exposes data and export endpoints for automation and integrations.
 | `/api/export/page/<slug>.json` | Page as JSON |
 | `/api/export/site.json` | Full site export |
 | `/api/export/search?query=<q>&format=json` | Search results export (serve mode only) |
-

@@ -15,6 +15,7 @@ import {
   GraphModal,
   PageActions,
   PageContent,
+  PageToc,
   PresentationMode,
   RouteErrorState,
   SidebarFooter,
@@ -48,7 +49,12 @@ const Page = ({ loaderData }: Route.ComponentProps) => {
 
   const tableOfContent = useMemo(
     () => ({
-      footer: <SidebarFooter backlinks={page.backlinks} pagePath={pagePath} onOpenGraph={openGraph} />,
+      component: (
+        <PageToc
+          footer={<SidebarFooter backlinks={page.backlinks} pagePath={pagePath} onOpenGraph={openGraph} />}
+        />
+      ),
+      enabled: true,
     }),
     [openGraph, page.backlinks, pagePath],
   );
@@ -89,11 +95,7 @@ const Page = ({ loaderData }: Route.ComponentProps) => {
               <div className="min-w-0 flex-1 [&_h1]:!mb-0">
                 <DocsTitle>{page.title}</DocsTitle>
               </div>
-              <PageActions
-                pagePath={pagePath}
-                onOpenGraph={openGraph}
-                onStartPresentation={() => setPresentationMode(true)}
-              />
+              <PageActions pagePath={pagePath} onStartPresentation={() => setPresentationMode(true)} />
             </div>
             {page.description ?
               <DocsDescription className="mt-3 !mb-0">{page.description}</DocsDescription>

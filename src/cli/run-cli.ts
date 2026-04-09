@@ -189,7 +189,7 @@ const runDoctorCommand = async (argv: string[]) => {
             status: "warn",
             label: "root page",
             detail: "No root index page was found.",
-            fix: "Add an `index.md` to customize the landing page.",
+            fix: "Add an `index.md`, `INDEX.md`, or `README.md` to customize the landing page.",
           });
         }
       }

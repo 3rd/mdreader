@@ -25,6 +25,7 @@ const HTML_LINE_BREAK_PATTERN = /<(?:\/(?:blockquote|div|h[1-6]|li|ol|p|pre|tabl
 const MARKDOWN_EXTENSION_PATTERN = /\.md$/;
 const INVALID_HEADING_ID_CHARS_PATTERN = /[^\s\w-]/g;
 const HEADING_WHITESPACE_PATTERN = /\s+/g;
+const INDEX_MARKDOWN_BASENAMES = ["index.md", "INDEX.md", "README.md"] as const;
 const NESTED_CODE_MARKER_PATTERN = /<!--mdreader-code-block:(\d+)-->/g;
 const TRAILING_NEWLINE_PATTERN = /\n$/;
 const SAFE_URL_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
@@ -71,6 +72,7 @@ interface ResolvedContentHref {
 }
 
 type AdmonitionType = keyof typeof ADMONITION_VARIANTS;
+type IndexMarkdownBasename = (typeof INDEX_MARKDOWN_BASENAMES)[number];
 
 const isSafeUrl = (value: string) => {
   const trimmedValue = value.trim();
@@ -214,6 +216,28 @@ const isInsideDirectory = (directory: string, candidate: string) => {
 
 const getPathStat = (candidatePath: string) => statSync(candidatePath, { throwIfNoEntry: false });
 
+const getDirectoryIndexBasename = (directoryPath: string): IndexMarkdownBasename | null => {
+  for (const indexMarkdownBasename of INDEX_MARKDOWN_BASENAMES) {
+    const indexMarkdownPath = path.join(directoryPath, indexMarkdownBasename);
+    if (getPathStat(indexMarkdownPath)?.isFile()) return indexMarkdownBasename;
+  }
+
+  return null;
+};
+
+const getSlugPathForDocPath = (contentDir: string, docPath: string) => {
+  const docDirectory = path.dirname(docPath);
+  const indexMarkdownBasename = getDirectoryIndexBasename(docDirectory);
+  const relativeDocPath = normalizePathSlashes(path.relative(contentDir, docPath));
+
+  if (path.basename(docPath) !== indexMarkdownBasename) {
+    return slugPathFromMarkdownPath(relativeDocPath);
+  }
+
+  const relativeDirectoryPath = normalizePathSlashes(path.relative(contentDir, docDirectory));
+  return relativeDirectoryPath === "." ? "" : relativeDirectoryPath;
+};
+
 const getExistingDocPath = (candidatePath: string) => {
   const candidateExt = path.extname(candidatePath).toLowerCase();
 
@@ -226,8 +250,8 @@ const getExistingDocPath = (candidatePath: string) => {
   const markdownPath = `${candidatePath}.md`;
   if (getPathStat(markdownPath)?.isFile()) return markdownPath;
 
-  const indexMarkdownPath = path.join(candidatePath, "index.md");
-  if (getPathStat(indexMarkdownPath)?.isFile()) return indexMarkdownPath;
+  const indexMarkdownBasename = getDirectoryIndexBasename(candidatePath);
+  if (indexMarkdownBasename) return path.join(candidatePath, indexMarkdownBasename);
 
   return null;
 };
@@ -266,9 +290,24 @@ const resolveContentHref = (
 
   const resolvedContentDir = path.resolve(contentDir);
   const resolvedSourceDir = path.dirname(path.resolve(sourcePath));
+  const contentDirSegments = normalizePathSlashes(resolvedContentDir).split("/").filter(Boolean);
+  const pathSegments = normalizePathSlashes(pathPart).split("/").filter(Boolean);
   const candidateBasePaths =
     isAbsolutePath ?
-      [path.resolve(pathPart), path.resolve(resolvedContentDir, `.${pathPart}`)]
+      Array.from(
+        new Set([
+          path.resolve(pathPart),
+          path.resolve(resolvedContentDir, `.${pathPart}`),
+          ...contentDirSegments.flatMap((_, index) => {
+            const matchingSegments = contentDirSegments.slice(index);
+            const pathPrefix = pathSegments.slice(0, matchingSegments.length);
+            if (matchingSegments.length === 0) return [];
+            if (matchingSegments.join("/") !== pathPrefix.join("/")) return [];
+
+            return [path.resolve(resolvedContentDir, pathSegments.slice(matchingSegments.length).join("/"))];
+          }),
+        ]),
+      )
     : [path.resolve(resolvedSourceDir, pathPart)];
 
   return {
@@ -310,8 +349,7 @@ const resolveMarkdownLink = (
     };
   }
 
-  const relativeDocPath = normalizePathSlashes(path.relative(resolvedContentDir, docPath));
-  const slugPath = slugPathFromMarkdownPath(relativeDocPath);
+  const slugPath = getSlugPathForDocPath(resolvedContentDir, docPath);
 
   return {
     href: `${pageUrl(slugPath)}${search}${hash}`,
@@ -542,6 +580,8 @@ export const scanMarkdownFiles = (
       return;
     }
 
+    const directoryIndexBasename = getDirectoryIndexBasename(currentDirectory);
+
     for (const entry of entries) {
       const fullPath = path.join(currentDirectory, entry);
       const stat = statSync(fullPath, { throwIfNoEntry: false });
@@ -557,7 +597,9 @@ export const scanMarkdownFiles = (
       if (!matchesFileFilters(relativePath, filters)) continue;
 
       const slug = entry.replace(MARKDOWN_EXTENSION_PATTERN, "");
-      const slugs = slug === "index" ? prefix : [...prefix, slug];
+      const isDirectoryIndex = entry === directoryIndexBasename;
+      const pageSlug = isDirectoryIndex ? "index" : slug;
+      const slugs = isDirectoryIndex ? prefix : [...prefix, slug];
       const slugPath = slugs.join("/");
       const encodedSlugPath = encodeSlugPath(slugPath);
       if (encodedSlugPaths.has(encodedSlugPath)) {
@@ -572,7 +614,7 @@ export const scanMarkdownFiles = (
 
       encodedSlugPaths.add(encodedSlugPath);
       pages.set(slugPath, {
-        ...parseMarkdownFile(fullPath, slug, slugs, directory),
+        ...parseMarkdownFile(fullPath, pageSlug, slugs, directory),
         relativePath,
         sourcePath: fullPath,
       });

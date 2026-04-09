@@ -8,9 +8,11 @@ import {
   useState,
 } from "react";
 import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
+import { TOCScrollArea, useTOCItems } from "fumadocs-ui/components/toc";
+import { TOCEmpty, TOCItem, TOCItems } from "fumadocs-ui/components/toc/default";
+import { I18nLabel } from "fumadocs-ui/contexts/i18n";
 import { DocsBody } from "fumadocs-ui/layouts/docs/page";
 import {
-  ChartNetwork,
   ChevronRight,
   EllipsisVertical,
   FileCode2,
@@ -20,8 +22,10 @@ import {
   MonitorPlay,
   Printer,
   Route,
+  Text,
 } from "lucide-react";
 import { Link, useNavigate, useRevalidator } from "react-router";
+import type { TOCProps } from "fumadocs-ui/layouts/docs/page/slots/toc";
 import { HtmlContent, invalidateLinkPreviewCache } from "@/components/HtmlContent";
 import { Mermaid } from "@/components/Mermaid";
 import { useDiagramViewport } from "@/components/Mermaid/components/DiagramModal/useDiagramViewport";
@@ -701,6 +705,41 @@ export const SidebarFooter = ({
   );
 };
 
+export const PageToc = ({ container, footer, header }: TOCProps) => {
+  const items = useTOCItems();
+  const { className, ...containerProps } = container ?? {};
+
+  return (
+    <div
+      id="nd-toc"
+      {...containerProps}
+      className={[
+        "sticky top-(--fd-docs-row-1) h-[calc(var(--fd-docs-height)-var(--fd-docs-row-1))] flex flex-col [grid-area:toc] w-(--fd-toc-width) pt-12 pe-4 pb-2 max-xl:hidden",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      {header}
+      <h3 id="toc-title" className="inline-flex items-center gap-1.5 text-sm text-fd-muted-foreground">
+        <Text className="size-4" />
+        <I18nLabel label="toc" />
+      </h3>
+      <TOCScrollArea>
+        {items.length === 0 ?
+          <TOCEmpty />
+        : <TOCItems>
+            {items.map((item) => (
+              <TOCItem key={item.url} item={item} />
+            ))}
+          </TOCItems>
+        }
+      </TOCScrollArea>
+      {footer}
+    </div>
+  );
+};
+
 export const PageContent = ({ segments }: { segments: ContentSegment[] }) => {
   const segmentKeyCounts = new Map<string, number>();
 
@@ -761,11 +800,9 @@ export const useLiveReload = () => {
 };
 
 export const PageActions = ({
-  onOpenGraph,
   onStartPresentation,
   pagePath,
 }: {
-  onOpenGraph: () => void;
   onStartPresentation: () => void;
   pagePath: string;
 }) => {
@@ -861,22 +898,11 @@ export const PageActions = ({
               type="button"
               onClick={() => {
                 closeMenu();
-                onOpenGraph();
-              }}
-            >
-              <ChartNetwork aria-hidden="true" className={ACTION_MENU_ICON_CLASS_NAME} />
-              Open Graph
-            </button>
-            <button
-              className={ACTION_MENU_ITEM_CLASS_NAME}
-              type="button"
-              onClick={() => {
-                closeMenu();
                 onStartPresentation();
               }}
             >
               <MonitorPlay aria-hidden="true" className={ACTION_MENU_ICON_CLASS_NAME} />
-              Presentation Mode
+              Present
             </button>
             <button className={ACTION_MENU_ITEM_CLASS_NAME} type="button" onClick={handleCopyMarkdown}>
               <FileText aria-hidden="true" className={ACTION_MENU_ICON_CLASS_NAME} />
