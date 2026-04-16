@@ -30,11 +30,13 @@ const parseThemeFlag = (value: string): Theme => {
   throw new Error(`theme must be one of: ${VALID_THEMES.join(", ")}`);
 };
 
-const overrideThemeFlag = (description: string) => ({
-  type: parseThemeFlag,
-  description,
-  placeholder: "<theme>",
-});
+const overrideThemeFlag = (description: string) => {
+  return {
+    type: parseThemeFlag,
+    description,
+    placeholder: "<theme>",
+  };
+};
 
 export const parseServeArgv = (argv: string[]) =>
   cleye(

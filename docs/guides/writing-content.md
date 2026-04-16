@@ -22,11 +22,11 @@ order: 5
 |---|---|---|
 | `title` | First `<h1>` or filename | Page title |
 | `description` | `""` | Used in page metadata and search results |
-| `order` | `999` | Sidebar sort order, lower values first |
+| `order` | `999` | Sidebar sort order; items with the same order are sorted alphanumerically, and the home page stays pinned first unless it has its own `order` |
 
 ## Frontmatter is optional
 
-If you skip frontmatter, mdreader can still render the page. The title comes from the first `#` heading, the description stays empty, and the page sorts late unless you add an explicit `order`.
+If you skip frontmatter, mdreader can still render the page. The title comes from the first `#` heading, the description stays empty, and the page uses the default sidebar order of `999`.
 
 See [Frontmatter Is Optional](/no-frontmatter) for a page that demonstrates the fallback behavior on purpose.
 
@@ -94,16 +94,10 @@ Headings from level 2 through level 4 are collected into the page table of conte
 
 ## Ordering and folder structure
 
-Use `order` in frontmatter when you need predictable sidebar sorting:
-
-```yaml
----
-title: API Overview
-order: 2
----
-```
-
 Nested folders become nested groups in the sidebar, and `index.md` becomes a folder landing page.
+Use `order` in frontmatter when you need to move an item earlier or later in the sidebar.
+Items on the same sidebar level with the same order are sorted alphanumerically by their visible title or folder name.
+The root home page stays pinned first unless it has its own explicit `order`.
 
 See [Nested Folders and Routes](/guides/advanced/nested-page) for the path-to-URL rules.
 

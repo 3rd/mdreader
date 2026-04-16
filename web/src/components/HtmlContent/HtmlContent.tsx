@@ -135,9 +135,11 @@ export const HtmlContent = ({
   const previewTargetHrefRef = useRef<string | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const markup = useMemo(
-    () => (
-      <div ref={contentRef} dangerouslySetInnerHTML={{ __html: html }} className={className} style={style} />
-    ),
+    () => {
+      return (
+        <div ref={contentRef} dangerouslySetInnerHTML={{ __html: html }} className={className} style={style} />
+      )
+    },
     [className, html, style],
   );
 

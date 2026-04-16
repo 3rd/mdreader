@@ -40,6 +40,7 @@ export interface PageInfo {
   title: string;
   description: string;
   order: number;
+  hasExplicitOrder: boolean;
   plainText: string;
   relativePath: string;
   segments: ContentSegment[];

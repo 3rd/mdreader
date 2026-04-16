@@ -83,11 +83,13 @@ interface RequestContext extends RequestSnapshot {
   theme: Theme;
 }
 
-const createServerRuntime = (): ServerRuntime => ({
-  clientAssetsStore: createClientAssetsStore(),
-  liveReloadChannel: createLiveReloadChannel(),
-  siteDataStore: createSiteDataStore(),
-});
+const createServerRuntime = (): ServerRuntime => {
+  return {
+    clientAssetsStore: createClientAssetsStore(),
+    liveReloadChannel: createLiveReloadChannel(),
+    siteDataStore: createSiteDataStore(),
+  };
+};
 
 const resolveSafePath = (rootDir: string, pathname: string) => {
   try {
@@ -330,8 +332,8 @@ export const startServer = async (options: ServerOptions): Promise<MdreaderServe
 
   return {
     port,
-    close: () =>
-      new Promise<void>((resolve, reject) => {
+    close: () => {
+      return new Promise<void>((resolve, reject) => {
         runtime.liveReloadChannel.close();
         server.close((error) => {
           if (error) {
@@ -341,7 +343,8 @@ export const startServer = async (options: ServerOptions): Promise<MdreaderServe
 
           resolve();
         });
-      }),
+      });
+    },
     refresh: () => refreshServerContent(runtime, { contentDir, filters, siteTitle, singleFile }),
     reloadClientAssets: () => reloadServerClientAssets(runtime),
   };

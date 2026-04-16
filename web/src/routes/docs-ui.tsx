@@ -462,19 +462,21 @@ const DocsGraph = ({
       <rect fill={`url(#${gridId})`} height={layout.height} rx="24" width={layout.width} />
       {mode === "modal" ?
         <g>
-          {layout.ringRadii.map((radius) => (
-            <circle
-              key={radius}
-              cx={layout.width / 2}
-              cy={layout.height / 2}
-              fill="none"
-              r={radius}
-              stroke="var(--color-fd-border)"
-              strokeOpacity={ringStrokeOpacity}
-              strokeDasharray="6 10"
-              strokeWidth="1"
-            />
-          ))}
+          {layout.ringRadii.map((radius) => {
+            return (
+              <circle
+                key={radius}
+                cx={layout.width / 2}
+                cy={layout.height / 2}
+                fill="none"
+                r={radius}
+                stroke="var(--color-fd-border)"
+                strokeOpacity={ringStrokeOpacity}
+                strokeDasharray="6 10"
+                strokeWidth="1"
+              />
+            )
+          })}
         </g>
       : null}
       <g>
@@ -655,20 +657,22 @@ const BacklinksSection = ({
       onToggle={onToggle}
     >
       <ul className="space-y-1 border-s border-fd-border/70 ps-3 text-[13px]">
-        {backlinks.map((backlink) => (
-          <li key={`${backlink.url}:${backlink.title}`}>
-            <Link
-              className="group flex items-start gap-2 py-0.5 text-fd-muted-foreground transition hover:text-fd-accent-foreground focus-visible:text-fd-accent-foreground focus-visible:outline-none"
-              to={backlink.url}
-            >
-              <FileText
-                aria-hidden="true"
-                className="mt-0.5 size-3 shrink-0 text-fd-muted-foreground/70 transition group-hover:text-fd-muted-foreground"
-              />
-              <span className="leading-5">{backlink.title}</span>
-            </Link>
-          </li>
-        ))}
+        {backlinks.map((backlink) => {
+          return (
+            <li key={`${backlink.url}:${backlink.title}`}>
+              <Link
+                className="group flex items-start gap-2 py-0.5 text-fd-muted-foreground transition hover:text-fd-accent-foreground focus-visible:text-fd-accent-foreground focus-visible:outline-none"
+                to={backlink.url}
+              >
+                <FileText
+                  aria-hidden="true"
+                  className="mt-0.5 size-3 shrink-0 text-fd-muted-foreground/70 transition group-hover:text-fd-muted-foreground"
+                />
+                <span className="leading-5">{backlink.title}</span>
+              </Link>
+            </li>
+          )
+        })}
       </ul>
     </SidebarSection>
   );
@@ -729,9 +733,11 @@ export const PageToc = ({ container, footer, header }: TOCProps) => {
         {items.length === 0 ?
           <TOCEmpty />
         : <TOCItems>
-            {items.map((item) => (
-              <TOCItem key={item.url} item={item} />
-            ))}
+            {items.map((item) => {
+              return (
+                <TOCItem key={item.url} item={item} />
+              )
+            })}
           </TOCItems>
         }
       </TOCScrollArea>
@@ -912,12 +918,14 @@ export const PageActions = ({
               <FileText aria-hidden="true" className={ACTION_MENU_ICON_CLASS_NAME} />
               Export Markdown
             </a>
-            {exportLinks.map(({ href, icon: Icon, label }) => (
-              <a key={label} className={ACTION_MENU_ITEM_CLASS_NAME} href={href} onClick={closeMenu}>
-                <Icon aria-hidden="true" className={ACTION_MENU_ICON_CLASS_NAME} />
-                {label}
-              </a>
-            ))}
+            {exportLinks.map(({ href, icon: Icon, label }) => {
+              return (
+                <a key={label} className={ACTION_MENU_ITEM_CLASS_NAME} href={href} onClick={closeMenu}>
+                  <Icon aria-hidden="true" className={ACTION_MENU_ICON_CLASS_NAME} />
+                  {label}
+                </a>
+              )
+            })}
           </div>
         : null}
       </div>

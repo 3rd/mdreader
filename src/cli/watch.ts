@@ -77,8 +77,8 @@ const snapshotWebSourceFiles = () => {
   return snapshot;
 };
 
-const runWebBuild = () =>
-  new Promise<void>((resolve, reject) => {
+const runWebBuild = () => {
+  return new Promise<void>((resolve, reject) => {
     const child = spawn("bun", ["run", "--cwd", "./web", "build"], {
       cwd: ROOT_DIR,
       stdio: "inherit",
@@ -94,6 +94,7 @@ const runWebBuild = () =>
       reject(new Error(`web build failed with status ${code ?? "unknown"}`));
     });
   });
+};
 
 export const startWatcher = (
   contentDir: string,

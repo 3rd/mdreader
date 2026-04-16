@@ -8,11 +8,13 @@ const CONFIG_FIELDS = new Set(["description", "theme", "title"]);
 
 export const CONFIG_FILENAME = "mdreader.json";
 
-export const getDefaultConfig = (dir: string): MdreaderConfig => ({
-  title: path.basename(dir),
-  description: "",
-  theme: "neutral",
-});
+export const getDefaultConfig = (dir: string): MdreaderConfig => {
+  return {
+    title: path.basename(dir),
+    description: "",
+    theme: "neutral",
+  };
+};
 
 export const loadConfig = async (dir: string): Promise<ConfigLoadResult> => {
   const configPath = path.join(dir, CONFIG_FILENAME);

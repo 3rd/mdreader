@@ -21,20 +21,22 @@ const buildSearchContents = (page: PageInfo) => {
 };
 
 const buildSearchIndex = async (pages: Map<string, PageInfo>, siteTitle: string) => {
-  const indexes = Array.from(pages.entries(), ([slugPath, page]) => ({
-    breadcrumbs: getBreadcrumbs(page, siteTitle),
-    description: page.description,
-    id: pageUrl(slugPath),
-    structuredData: {
-      headings: page.toc.map((heading) => ({
-        content: heading.title,
-        id: heading.url.replace(/^#/, ""),
-      })),
-      contents: buildSearchContents(page),
-    },
-    title: page.title,
-    url: pageUrl(slugPath),
-  }));
+  const indexes = Array.from(pages.entries(), ([slugPath, page]) => {
+    return {
+      breadcrumbs: getBreadcrumbs(page, siteTitle),
+      description: page.description,
+      id: pageUrl(slugPath),
+      structuredData: {
+        headings: page.toc.map((heading) => ({
+          content: heading.title,
+          id: heading.url.replace(/^#/, ""),
+        })),
+        contents: buildSearchContents(page),
+      },
+      title: page.title,
+      url: pageUrl(slugPath),
+    };
+  });
 
   return initAdvancedSearch({ indexes }).export();
 };
@@ -170,11 +172,13 @@ const enrichPages = (contentDir: string, pages: Map<string, PageInfo>): GraphDat
 
   return {
     edges,
-    nodes: Array.from(pages.entries(), ([slugPath, page]) => ({
-      id: pageUrl(slugPath),
-      title: page.title,
-      url: pageUrl(slugPath),
-    })),
+    nodes: Array.from(pages.entries(), ([slugPath, page]) => {
+      return {
+        id: pageUrl(slugPath),
+        title: page.title,
+        url: pageUrl(slugPath),
+      };
+    }),
   };
 };
 

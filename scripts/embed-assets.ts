@@ -52,12 +52,14 @@ const serializeEmbeddedAsset = (entry: EmbeddedAssetEntry) => {
 const createAssetModule = (
   assetEntries: EmbeddedAssetEntry[],
   indexHtml: string,
-) => `// auto-generated build artifact
-export const EMBEDDED_INDEX_HTML = ${JSON.stringify(indexHtml)};
-export const EMBEDDED_ASSETS: Record<string, Buffer | string> = {
-${assetEntries.map(serializeEmbeddedAsset).join("\n")}
+) => {
+  return `// auto-generated build artifact
+  export const EMBEDDED_INDEX_HTML = ${JSON.stringify(indexHtml)};
+  export const EMBEDDED_ASSETS: Record<string, Buffer | string> = {
+  ${assetEntries.map(serializeEmbeddedAsset).join("\n")}
+  };
+  `
 };
-`;
 
 const createEntryModule = () => {
   const indexImport = toImportSpecifier(path.relative(TEMP_DIR, path.resolve(ROOT_DIR, "src/index.ts")));
@@ -94,10 +96,11 @@ const ensureBundleExecutable = () => {
   chmodSync(OUTPUT_FILE, 0o755);
 };
 
-const getBuildArgs = () =>
-  BUILD_MODE === "compile" ?
+const getBuildArgs = () => {
+  return BUILD_MODE === "compile" ?
     ["build", "--compile", "--minify", TEMP_ENTRY_FILE, "--outfile", OUTPUT_FILE]
-  : ["build", TEMP_ENTRY_FILE, "--outfile", OUTPUT_FILE, "--target", "node", "--minify"];
+  : ["build", TEMP_ENTRY_FILE, "--outfile", OUTPUT_FILE, "--target", "node", "--minify"]
+};
 
 const prepareOutputDirectory = () => {
   const outputDir = path.dirname(OUTPUT_FILE);

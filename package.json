@@ -1,6 +1,6 @@
 {
   "name": "mdreader",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Browse local Markdown files in the browser with Fumadocs.",
   "keywords": [
     "markdown",

@@ -544,6 +544,7 @@ export const parseMarkdownFile = (
   const contentTokens = trimLeadingTitleHeading(tokens);
   const segments = buildSegments(contentTokens, parserResult);
   const title = extractTitle(frontmatter, markdownParser, tokens, slug);
+  const hasExplicitOrder = typeof frontmatter["order"] === "number";
   const order = extractOrder(frontmatter);
   const description = typeof frontmatter["description"] === "string" ? frontmatter["description"] : "";
 
@@ -556,6 +557,7 @@ export const parseMarkdownFile = (
     title,
     description,
     order,
+    hasExplicitOrder,
     plainText: buildPlainText(segments),
     relativePath: "",
     segments,

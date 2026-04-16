@@ -137,7 +137,7 @@ order: 1
 |---|---|---|
 | `title` | First `<h1>` or filename | Page title |
 | `description` | `""` | Shown below the title and in search |
-| `order` | `999` | Sort position in the sidebar (lower = earlier) |
+| `order` | `999` | Sort position in the sidebar; items with the same order are sorted alphanumerically, and the home page stays pinned first unless it has its own `order` |
 
 ### Supported features
 

@@ -41,21 +41,25 @@ const Page = ({ loaderData }: Route.ComponentProps) => {
   }, [pagePath]);
 
   const docsLayoutNav = useMemo(
-    () => ({
-      title: siteTitle,
-    }),
+    () => {
+      return ({
+        title: siteTitle,
+      })
+    },
     [siteTitle],
   );
 
   const tableOfContent = useMemo(
-    () => ({
-      component: (
-        <PageToc
-          footer={<SidebarFooter backlinks={page.backlinks} pagePath={pagePath} onOpenGraph={openGraph} />}
-        />
-      ),
-      enabled: true,
-    }),
+    () => {
+      return ({
+        component: (
+          <PageToc
+            footer={<SidebarFooter backlinks={page.backlinks} pagePath={pagePath} onOpenGraph={openGraph} />}
+          />
+        ),
+        enabled: true,
+      })
+    },
     [openGraph, page.backlinks, pagePath],
   );
 

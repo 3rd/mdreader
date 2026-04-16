@@ -66,10 +66,12 @@ const getWatchedFileState = (filePath: string): WatchedFileState | null => {
   };
 };
 
-export const createFileFilters = (include?: string[], exclude?: string[]): FileFilters => ({
-  exclude: [...new Set((exclude ?? []).map((value) => normalizePathSlashes(value.trim())).filter(Boolean))],
-  include: [...new Set((include ?? []).map((value) => normalizePathSlashes(value.trim())).filter(Boolean))],
-});
+export const createFileFilters = (include?: string[], exclude?: string[]): FileFilters => {
+  return {
+    exclude: [...new Set((exclude ?? []).map((value) => normalizePathSlashes(value.trim())).filter(Boolean))],
+    include: [...new Set((include ?? []).map((value) => normalizePathSlashes(value.trim())).filter(Boolean))],
+  };
+};
 
 export const countMarkdownFiles = (directory: string, filters: FileFilters) => {
   let count = 0;

@@ -39,8 +39,8 @@ Without an `index.md`, the folder still appears in the sidebar, but it only grou
 ## When to use nesting
 
 Use nested folders when you want related pages grouped together or when a topic needs its own URL section. Keep the directory structure close to the mental model you want readers to see in the sidebar.
-
-`order` still controls page sorting inside a folder, so you can keep nested sections predictable when a folder contains several pages.
+`order` still controls page sorting inside a folder, and items with the same order are sorted alphanumerically by their visible title or folder name.
+The root home page stays pinned first unless it has its own explicit `order`.
 
 ## See also
 
