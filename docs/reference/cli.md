@@ -17,6 +17,7 @@ mdreader init [target] [options]
 ```
 
 If you omit `[target]` for `mdreader` or `mdreader serve`, mdreader serves the current working directory.
+`mdreader --completions <bash|zsh|fish>` prints a shell completion script.
 When you serve or build a single Markdown file, mdreader uses the file basename as the site title unless you pass `--title`.
 
 ## Commands

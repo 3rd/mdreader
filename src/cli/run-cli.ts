@@ -7,7 +7,13 @@ import { CONFIG_FILENAME, getDefaultConfig, loadConfig } from "../lib/config";
 import { parseMarkdownFile, scanMarkdownFiles } from "../lib/parser";
 import { findAvailablePort } from "../lib/port";
 import { buildStaticSite, getClientAssetStatus, startServer } from "../server";
-import { parseBuildArgv, parseDoctorArgv, parseInitArgv, parseServeArgv } from "./argv";
+import {
+  type BuildCommandInput,
+  createMdreaderCli,
+  type DoctorCommandInput,
+  type InitCommandInput,
+  type ServeCommandInput,
+} from "./argv";
 import { getServeUrls, openInBrowser } from "./browser";
 import {
   countMarkdownFiles,
@@ -88,17 +94,18 @@ const resolveSiteTitle = (
   return path.basename(singleFile, path.extname(singleFile));
 };
 
-const runServeCommand = async (argv: string[]) => {
-  const parsed = parseServeArgv(argv);
-  const include = parsed.flags["include"];
-  const exclude = parsed.flags["exclude"];
-  const host = parsed.flags["host"];
-  const open = parsed.flags["open"];
-  const portFlag = parsed.flags["port"];
-  const theme = parsed.flags["theme"];
-  const title = parsed.flags["title"];
-  const watch = parsed.flags["watch"];
-  const content = await loadContentCommandContext(parsed._.target, include, exclude);
+const runServeCommand = async ({
+  exclude,
+  host,
+  include,
+  open,
+  port: portFlag,
+  target,
+  theme,
+  title,
+  watch,
+}: ServeCommandInput) => {
+  const content = await loadContentCommandContext(target, include, exclude);
   const { configResult, contentDir, filters, singleFile } = content;
 
   printContentRunWarnings(content);
@@ -132,11 +139,8 @@ const runServeCommand = async (argv: string[]) => {
   if (open) openInBrowser(serveUrls.browserUrl);
 };
 
-const runDoctorCommand = async (argv: string[]) => {
-  const parsed = parseDoctorArgv(argv);
-  const include = parsed.flags["include"];
-  const exclude = parsed.flags["exclude"];
-  const content = await loadContentCommandContext(parsed._.target, include, exclude);
+const runDoctorCommand = async ({ exclude, include, target }: DoctorCommandInput) => {
+  const content = await loadContentCommandContext(target, include, exclude);
   const { configResult, contentDir, filters, singleFile, unsupportedFiles } = content;
   const checks: DoctorCheck[] = [];
 
@@ -232,15 +236,7 @@ const runDoctorCommand = async (argv: string[]) => {
   }
 };
 
-const runBuildCommand = async (argv: string[]) => {
-  const parsed = parseBuildArgv(argv);
-  const dest = parsed.flags.dest;
-  const exclude = parsed.flags.exclude;
-  const include = parsed.flags.include;
-  const source = parsed.flags.source;
-  const theme = parsed.flags.theme;
-  const title = parsed.flags.title;
-
+const runBuildCommand = async ({ dest, exclude, include, source, theme, title }: BuildCommandInput) => {
   if (!source) throw new Error("build requires --source <path>");
   if (!dest) throw new Error("build requires --dest <dir>");
 
@@ -270,13 +266,8 @@ const runBuildCommand = async (argv: string[]) => {
   console.log(p.gray(`  ${buildResult.pageCount} page(s)\n`));
 };
 
-const runInitCommand = async (argv: string[]) => {
-  const parsed = parseInitArgv(argv);
-  const description = parsed.flags["description"];
-  const force = parsed.flags["force"];
-  const theme = parsed.flags["theme"];
-  const title = parsed.flags["title"];
-  const contentDir = resolveInitDirectory(parsed._.target);
+const runInitCommand = async ({ description, force, target, theme, title }: InitCommandInput) => {
+  const contentDir = resolveInitDirectory(target);
   const configPath = path.join(contentDir, CONFIG_FILENAME);
   const hasConfig = existsSync(configPath);
 
@@ -296,28 +287,12 @@ const runInitCommand = async (argv: string[]) => {
 };
 
 export const runCli = async () => {
-  const argv = process.argv.slice(2);
-  const [subcommand, ...rest] = argv;
+  const app = createMdreaderCli({
+    build: runBuildCommand,
+    doctor: runDoctorCommand,
+    init: runInitCommand,
+    serve: runServeCommand,
+  });
 
-  switch (subcommand) {
-    case "doctor": {
-      await runDoctorCommand(rest);
-      return;
-    }
-    case "build": {
-      await runBuildCommand(rest);
-      return;
-    }
-    case "init": {
-      await runInitCommand(rest);
-      return;
-    }
-    case "serve": {
-      await runServeCommand(rest);
-      return;
-    }
-    default: {
-      await runServeCommand(argv);
-    }
-  }
+  await app.serve(process.argv.slice(2));
 };

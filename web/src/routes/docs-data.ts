@@ -10,12 +10,11 @@ import type {
   GraphDataPayload,
   LastUpdatedInfo,
   PageDataPayload,
-  PagePreviewPayload,
   TocItem,
 } from "../../../src/types";
 import type { Route } from "./+types/docs";
 import { API_TREE_JSON_PATH } from "../../../src/constants";
-import { graphDataPath, pageDataPath, pagePreviewPath } from "../../../src/utils";
+import { graphDataPath, pageDataPath } from "../../../src/utils";
 
 interface LoaderData {
   pagePath: string;
@@ -178,25 +177,6 @@ const parsePageData = (value: unknown): PageDataPayload => {
   };
 };
 
-const parsePagePreview = (value: unknown): PagePreviewPayload => {
-  const preview = asRecord(value, "page preview");
-  if (
-    typeof preview.title !== "string" ||
-    typeof preview.description !== "string" ||
-    typeof preview.excerpt !== "string" ||
-    typeof preview.url !== "string"
-  ) {
-    throw new TypeError("invalid page preview");
-  }
-
-  return {
-    title: preview.title,
-    description: preview.description,
-    excerpt: preview.excerpt,
-    url: preview.url,
-  };
-};
-
 const parseGraphData = (value: unknown): GraphDataPayload => {
   const graph = asRecord(value, "graph payload");
   if (!Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
@@ -259,8 +239,6 @@ const getTreePayload = () => {
   });
   return cachedTreePayloadPromise;
 };
-
-export const fetchPagePreview = (slugPath: string) => fetchJson(pagePreviewPath(slugPath), parsePagePreview);
 
 export const fetchGraphData = () => fetchJson(graphDataPath(), parseGraphData);
 

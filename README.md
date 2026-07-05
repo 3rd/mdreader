@@ -24,6 +24,8 @@ mdreader build --source ./docs --dest ./mdreader-dist  # build a static site
 
 No configuration is needed. If you want a custom title, description, or theme, add an optional `mdreader.json` or run `mdreader init`.
 
+Shell completions are built in: `source <(mdreader --completions bash)` (also `zsh` and `fish`).
+
 ## Commands
 
 ### `mdreader [target]`

@@ -93,7 +93,7 @@ web_modules/
 # Output of 'npm pack'
 
 *.tgz
-mdbrowse-dist/
+mdreader-dist/
 
 # Yarn Integrity file
 
