@@ -1,6 +1,6 @@
 {
   "name": "mdreader",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Browse local Markdown files in the browser with Fumadocs.",
   "keywords": [
     "markdown",
@@ -71,6 +71,7 @@
     "marked": "^15",
     "mermaid": "^11.13.0",
     "picoprint": "^1.0.6",
+    "puppeteer-core": "^25",
     "react": "^19",
     "react-dom": "^19",
     "react-router": "^7",

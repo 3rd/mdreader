@@ -34,8 +34,8 @@ const injectRuntimeConfig = (html: string, config: RuntimeConfig) => {
   return `${html}${runtimeScript}`;
 };
 
-export const renderClientShell = (html: string, theme: Theme, mode: RuntimeConfig["mode"]) => {
-  return injectRuntimeConfig(injectTheme(html, theme), { mode });
+export const renderClientShell = (html: string, theme: Theme, config: RuntimeConfig) => {
+  return injectRuntimeConfig(injectTheme(html, theme), config);
 };
 
 let defaultEmbeddedAssets: EmbeddedAssets | null = null;
@@ -136,7 +136,9 @@ export const createClientAssetsStore = (): ClientAssetsStore => {
           }
         }
 
-        return htmlResponse(renderClientShell(clientAssets.indexHtml, theme, "serve"));
+        return htmlResponse(
+          renderClientShell(clientAssets.indexHtml, theme, { hasPdfExport: true, mode: "serve" }),
+        );
       } catch {
         return textResponse(WEB_ASSET_ERROR_MESSAGE, 500);
       }

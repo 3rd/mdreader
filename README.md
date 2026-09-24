@@ -62,8 +62,11 @@ Build a deployable static site to disk. The destination directory must not alrea
 | `--theme <theme>` | Override the configured theme |
 | `--include <glob>` | Only include files matching a glob (repeatable) |
 | `--exclude <glob>` | Exclude files matching a glob (repeatable) |
+| `--pdf <a4\|letter>` | Also export every page as a PDF on this paper size |
 
 The output is a directory of static files that can be served by any static file server.
+
+PDF export (the Export PDF menu item and `--pdf`) renders pages with a locally installed Chrome or Chromium-based browser. Set `CHROME_PATH` to use a specific browser executable. PDFs from static builds keep external links and same-page links clickable; links to other pages become plain text because the deployed address is not known at build time.
 
 ### `mdreader doctor [target]`
 
@@ -149,7 +152,8 @@ order: 1
 - GitHub-style callouts: `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, `> [!CAUTION]`
 - Nested directory trees with `index.md` as the preferred folder landing page, with `INDEX.md` and `README.md` as fallbacks when `index.md` is missing
 - Full-text search with `Cmd+K` / `Ctrl+K`
-- Per-page actions menu (copy link, print, export as Markdown/HTML/JSON)
+- Per-page actions menu (print, present, copy Markdown, export as PDF/Markdown/HTML/JSON)
+- Print-ready layout: printing shows only the document, in light colors, with page numbers
 
 ### Ignored directories
 
@@ -175,5 +179,8 @@ The server exposes data and export endpoints for automation and integrations.
 | `/api/export/page/<slug>.md` | Page as Markdown |
 | `/api/export/page/<slug>.html` | Page as standalone HTML |
 | `/api/export/page/<slug>.json` | Page as JSON |
+| `/api/export/page/<slug>.pdf` | Page as PDF with bookmarks and clickable links (serve mode, or static builds made with `--pdf`) |
 | `/api/export/site.json` | Full site export |
 | `/api/export/search?query=<q>&format=json` | Search results export (serve mode only) |
+
+In serve mode, PDF exports accept `?paper=a4` or `?paper=letter`. Static builds use the paper size selected by `--pdf`; the query parameter does not change those files.

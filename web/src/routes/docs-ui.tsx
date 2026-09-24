@@ -16,13 +16,16 @@ import {
   ChevronRight,
   EllipsisVertical,
   FileCode2,
+  FileDown,
   FileJson,
   FileText,
   Link2,
+  LoaderCircle,
   MonitorPlay,
   Printer,
   Route,
   Text,
+  X,
 } from "lucide-react";
 import { Link, useNavigate, useRevalidator } from "react-router";
 import type { TOCProps } from "fumadocs-ui/layouts/docs/page/slots/toc";
@@ -33,6 +36,7 @@ import type { ContentSegment, GraphDataPayload, PageDataPayload, RuntimeConfig }
 import { API_EVENTS_PATH, API_SITE_EXPORT_JSON_PATH } from "../../../src/constants";
 import { pageExportPath, pageUrl } from "../../../src/utils";
 import { fetchGraphData, invalidateTreePayload } from "./docs-data";
+import { downloadPagePdf, printDocument } from "./docs-print";
 
 const ACTION_MENU_TRIGGER_CLASS_NAME =
   "inline-flex size-9 items-center justify-center rounded-full border border-transparent text-fd-muted-foreground transition hover:border-fd-border hover:bg-fd-secondary/50 hover:text-fd-foreground focus-visible:border-fd-border focus-visible:bg-fd-secondary/50 focus-visible:text-fd-foreground focus-visible:ring-2 focus-visible:ring-fd-ring focus-visible:outline-none";
@@ -43,6 +47,8 @@ const ACTION_MENU_PANEL_CLASS_NAME =
 const ACTION_MENU_ITEM_CLASS_NAME =
   "flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-fd-foreground transition hover:bg-fd-accent hover:text-fd-accent-foreground focus-visible:bg-fd-accent focus-visible:text-fd-accent-foreground focus-visible:outline-none";
 const ACTION_MENU_ICON_CLASS_NAME = "size-4 shrink-0 text-fd-muted-foreground";
+const ACTION_STATUS_PANEL_CLASS_NAME =
+  "absolute right-0 z-20 mt-2 flex w-72 items-start gap-2 rounded-xl border border-fd-border bg-fd-background p-3 text-sm text-fd-foreground shadow-lg";
 const GRAPH_MODAL_BUTTON_CLASS_NAME =
   "rounded-lg bg-fd-background/90 px-3 py-1.5 text-xs font-medium text-fd-foreground shadow-lg transition hover:bg-fd-accent focus-visible:ring-2 focus-visible:ring-fd-ring focus-visible:outline-none";
 
@@ -116,9 +122,9 @@ const getSegmentBaseKey = (segment: ContentSegment) => {
   return `code:${segment.lang}:${segment.code.slice(0, 80)}`;
 };
 
-const getRuntimeMode = (): RuntimeConfig["mode"] | undefined => {
+const getRuntimeConfig = () => {
   if (typeof window === "undefined") return undefined;
-  return (window as Window & { __MDREADER_RUNTIME__?: RuntimeConfig }).__MDREADER_RUNTIME__?.mode;
+  return (window as Window & { __MDREADER_RUNTIME__?: RuntimeConfig }).__MDREADER_RUNTIME__;
 };
 
 const copyText = async (value: string) => {
@@ -796,7 +802,7 @@ export const useLiveReload = () => {
   });
 
   useEffect(() => {
-    if (getRuntimeMode() !== "serve") return;
+    if (getRuntimeConfig()?.mode !== "serve") return;
 
     const eventSource = new EventSource(API_EVENTS_PATH);
     eventSource.addEventListener("message", handleMessage);
@@ -812,9 +818,13 @@ export const PageActions = ({
   onStartPresentation: () => void;
   pagePath: string;
 }) => {
-  const [copyState, setCopyState] = useState<"copied" | "error" | "idle">("idle");
+  const [copyState, setCopyState] = useState<"copied" | "idle">("idle");
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const canExportPdf = getRuntimeConfig()?.hasPdfExport === true;
   const markdownExportPath = pageExportPath(pagePath, "markdown");
   const exportLinks = [
     { href: pageExportPath(pagePath, "html"), icon: FileCode2, label: "Export HTML" },
@@ -867,25 +877,53 @@ export const PageActions = ({
       await copyText(await response.text());
       setCopyState("copied");
     } catch {
-      setCopyState("error");
+      setActionError("Unable to copy Markdown.");
     }
 
     closeMenu();
   };
 
+  const shouldShowActionError = !isMenuOpen && actionError !== null;
+  const triggerLabel = isExportingPdf ? "Page actions (exporting PDF)" : "Page actions";
+
+  const handleExportPdf = async () => {
+    closeMenu();
+    setActionError(null);
+    setIsExportingPdf(true);
+
+    try {
+      await downloadPagePdf(pagePath);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Unable to export PDF.");
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   return (
-    <div className="not-prose md:ml-auto">
+    <div className="not-prose md:ml-auto print:hidden">
       <div ref={menuRef} className="relative">
         <button
-          aria-label="Page actions"
+          aria-label={triggerLabel}
           aria-expanded={isMenuOpen}
           className={`${ACTION_MENU_TRIGGER_CLASS_NAME} ${isMenuOpen ? ACTION_MENU_TRIGGER_OPEN_CLASS_NAME : ""}`}
-          title="Page actions"
+          title={triggerLabel}
           type="button"
-          onClick={() => setIsMenuOpen((open) => !open)}
+          onClick={() => {
+            setActionError(null);
+            setIsMenuOpen((open) => !open);
+          }}
         >
-          <EllipsisVertical aria-hidden="true" className="size-4 shrink-0" />
+          {isExportingPdf ?
+            <LoaderCircle
+              aria-hidden="true"
+              className="size-4 shrink-0 animate-spin motion-reduce:animate-none"
+            />
+          : <EllipsisVertical aria-hidden="true" className="size-4 shrink-0" />}
         </button>
+        <span aria-live="polite" className="sr-only">
+          {isExportingPdf ? "Exporting PDF" : ""}
+        </span>
         {isMenuOpen ?
           <div className={ACTION_MENU_PANEL_CLASS_NAME}>
             <button
@@ -893,7 +931,7 @@ export const PageActions = ({
               type="button"
               onClick={() => {
                 closeMenu();
-                window.print();
+                printDocument();
               }}
             >
               <Printer aria-hidden="true" className={ACTION_MENU_ICON_CLASS_NAME} />
@@ -914,6 +952,17 @@ export const PageActions = ({
               <FileText aria-hidden="true" className={ACTION_MENU_ICON_CLASS_NAME} />
               {copyState === "copied" ? "Copied Markdown" : "Copy Markdown"}
             </button>
+            {canExportPdf && (
+              <button
+                className={ACTION_MENU_ITEM_CLASS_NAME}
+                disabled={isExportingPdf}
+                type="button"
+                onClick={handleExportPdf}
+              >
+                <FileDown aria-hidden="true" className={ACTION_MENU_ICON_CLASS_NAME} />
+                Export PDF
+              </button>
+            )}
             <a className={ACTION_MENU_ITEM_CLASS_NAME} href={markdownExportPath} onClick={closeMenu}>
               <FileText aria-hidden="true" className={ACTION_MENU_ICON_CLASS_NAME} />
               Export Markdown
@@ -928,10 +977,20 @@ export const PageActions = ({
             })}
           </div>
         : null}
+        {shouldShowActionError && (
+          <div className={ACTION_STATUS_PANEL_CLASS_NAME} role="alert">
+            <p className="min-w-0 flex-1">{actionError}</p>
+            <button
+              aria-label="Dismiss"
+              className="shrink-0 rounded-md p-0.5 text-fd-muted-foreground transition hover:text-fd-foreground focus-visible:ring-2 focus-visible:ring-fd-ring focus-visible:outline-none"
+              type="button"
+              onClick={() => setActionError(null)}
+            >
+              <X aria-hidden="true" className="size-4" />
+            </button>
+          </div>
+        )}
       </div>
-      {copyState === "error" ?
-        <p className="mt-2 text-xs text-fd-muted-foreground md:text-right">Unable to copy Markdown.</p>
-      : null}
     </div>
   );
 };
@@ -973,7 +1032,7 @@ export const GraphModal = ({ onClose, pagePath }: { onClose: () => void; pagePat
     <div
       aria-label="Documentation graph"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm print:hidden"
       role="dialog"
     >
       <div className="absolute top-4 right-4 z-[60] flex gap-2">

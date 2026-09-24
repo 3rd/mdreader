@@ -129,6 +129,7 @@ export interface ConfigDiagnostic {
 }
 
 export interface RuntimeConfig {
+  hasPdfExport: boolean;
   mode: RuntimeMode;
 }
 
@@ -147,6 +148,10 @@ export interface FileFilters {
 export const PAGE_EXPORT_FORMATS = ["html", "json", "markdown"] as const;
 
 export type PageExportFormat = (typeof PAGE_EXPORT_FORMATS)[number];
+
+export const PDF_PAPER_FORMATS = ["a4", "letter"] as const;
+
+export type PdfPaperFormat = (typeof PDF_PAPER_FORMATS)[number];
 export type RuntimeMode = "serve" | "static";
 
 export const VALID_THEMES = [
@@ -167,10 +172,15 @@ export const VALID_THEMES = [
 export type Theme = (typeof VALID_THEMES)[number];
 
 const PAGE_EXPORT_FORMAT_SET = new Set<string>(PAGE_EXPORT_FORMATS);
+const PDF_PAPER_FORMAT_SET = new Set<string>(PDF_PAPER_FORMATS);
 const VALID_THEME_SET = new Set<string>(VALID_THEMES);
 
 export const isPageExportFormat = (value: unknown): value is PageExportFormat => {
   return typeof value === "string" && PAGE_EXPORT_FORMAT_SET.has(value);
+};
+
+export const isPdfPaperFormat = (value: unknown): value is PdfPaperFormat => {
+  return typeof value === "string" && PDF_PAPER_FORMAT_SET.has(value);
 };
 
 export const isValidTheme = (value: unknown): value is Theme => {

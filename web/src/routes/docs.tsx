@@ -10,6 +10,7 @@ import {
 import { isRouteErrorResponse, useRouteError, useSearchParams } from "react-router";
 import { NotFound } from "@/components/NotFound";
 import type { Route } from "./+types/docs";
+import { useDocumentPrinting } from "./docs-print";
 import {
   BREADCRUMB_DISABLED,
   GraphModal,
@@ -36,6 +37,7 @@ const Page = ({ loaderData }: Route.ComponentProps) => {
   }, []);
 
   useLiveReload();
+  useDocumentPrinting();
   useEffect(() => {
     setIsGraphOpen(false);
   }, [pagePath]);

@@ -11,13 +11,16 @@ import {
   API_PAGE_EXPORT_PATH_PREFIX,
   API_PAGE_PATH_PREFIX,
   API_PAGE_PREVIEW_PATH_PREFIX,
+  PAGE_PDF_EXPORT_EXTENSION,
 } from "../../constants";
-import { isPageExportFormat } from "../../types";
-import { decodeSlugPath, escapeHtml, pageUrl } from "../../utils";
+import { isPageExportFormat, isPdfPaperFormat, PDF_PAPER_FORMATS } from "../../types";
+import { decodeSlugPath, escapeHtml, getPageExportName, pageUrl } from "../../utils";
 import { searchPages } from "../search";
+import { BROWSER_NOT_FOUND_MESSAGE, findBrowserExecutable, renderPdf } from "./pdf-renderer";
 import {
   createDownloadResponse,
   createHtmlSegment,
+  getContentType,
   HTML_CONTENT_TYPE,
   JSON_CONTENT_TYPE,
   jsonResponse,
@@ -26,6 +29,8 @@ import {
 } from "./responses";
 
 const PAGE_PREVIEW_EXCERPT_LENGTH = 220;
+const DEFAULT_PDF_PAPER_FORMAT = "a4";
+const PAGE_PDF_EXPORT_SUFFIX = `.${PAGE_PDF_EXPORT_EXTENSION}`;
 const PAGE_EXPORT_EXTENSION_BY_SUFFIX = {
   ".html": "html",
   ".json": "json",
@@ -34,6 +39,14 @@ const PAGE_EXPORT_EXTENSION_BY_SUFFIX = {
 
 interface StaticPageExportRequest {
   format: PageExportFormat;
+  slugPath: string;
+}
+
+interface PagePdfExportRequest {
+  linkOrigin: string | null;
+  pages: Map<string, PageInfo>;
+  paper: string | null;
+  renderOrigin: string;
   slugPath: string;
 }
 
@@ -183,8 +196,6 @@ const renderSegmentsAsHtml = (page: PageInfo) => {
     .join("\n");
 };
 
-const getPageExportName = (slugPath: string) => (slugPath || "index").replace(/\//g, "-");
-
 const renderSearchResultsAsMarkdown = (query: string, pages: Map<string, PageInfo>) => {
   const results = searchPages(pages, query);
   const heading = `# Search results for "${query}"`;
@@ -325,6 +336,46 @@ export const getPageExportResponse = (
     : createJsonIndexExportResponse(pages, siteDescription, siteTitle);
 };
 
+export const createPagePdfExporter = () => {
+  let isRendering = false;
+
+  return async ({ linkOrigin, pages, paper, renderOrigin, slugPath }: PagePdfExportRequest) => {
+    const hasExportablePage = pages.has(slugPath) || slugPath === "";
+    if (!hasExportablePage) return textResponse("Not Found", 404);
+
+    const paperFormat = paper ?? DEFAULT_PDF_PAPER_FORMAT;
+    if (!isPdfPaperFormat(paperFormat)) {
+      return textResponse(`pdf paper must be ${PDF_PAPER_FORMATS.join(" or ")}`, 400);
+    }
+
+    if (isRendering) {
+      return textResponse("A PDF export is already running. Try again when it finishes.", 429);
+    }
+
+    const executablePath = findBrowserExecutable();
+    if (!executablePath) return textResponse(BROWSER_NOT_FOUND_MESSAGE, 503);
+
+    const fileName = `${getPageExportName(slugPath)}${PAGE_PDF_EXPORT_SUFFIX}`;
+
+    isRendering = true;
+
+    try {
+      const pdf = await renderPdf({
+        executablePath,
+        linkOrigin,
+        paper: paperFormat,
+        url: new URL(pageUrl(slugPath), renderOrigin).href,
+      });
+      return createDownloadResponse(pdf, getContentType(fileName), fileName);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return textResponse(`PDF export failed: ${message}`, 500);
+    } finally {
+      isRendering = false;
+    }
+  };
+};
+
 export const getSiteExportResponse = (
   format: string,
   pages: Map<string, PageInfo>,
@@ -424,4 +475,15 @@ export const parseStaticPageExportPath = (pathname: string): StaticPageExportReq
   }
 
   return null;
+};
+
+export const parsePagePdfExportPath = (pathname: string) => {
+  const prefix = `${API_PAGE_EXPORT_PATH_PREFIX}/`;
+
+  const isPdfExportPath = pathname.startsWith(prefix) && pathname.endsWith(PAGE_PDF_EXPORT_SUFFIX);
+  if (!isPdfExportPath) return null;
+
+  const slugPath = decodeSlugPath(pathname.slice(prefix.length, -PAGE_PDF_EXPORT_SUFFIX.length));
+  if (slugPath === null) return null;
+  return slugPath === "index" ? "" : slugPath;
 };

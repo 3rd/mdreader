@@ -13,10 +13,14 @@ export const API_PAGE_PATH_PREFIX = "/api/page";
 export const API_PAGE_PREVIEW_PATH_PREFIX = "/api/page-preview";
 export const API_PAGE_EXPORT_PATH_PREFIX = "/api/export/page";
 export const API_PAGE_EXPORT_PATH = "/api/export/page";
+export const PAGE_PDF_EXPORT_EXTENSION = "pdf";
+export const PDF_PAPER_QUERY_PARAM = "paper";
 export const API_SITE_EXPORT_PATH = "/api/export/site";
 export const API_SITE_EXPORT_JSON_PATH = "/api/export/site.json";
 export const API_SEARCH_EXPORT_PATH = "/api/export/search";
 export const API_GRAPH_JSON_PATH = "/api/graph.json";
+export const DOCUMENT_CONTENT_SELECTOR = "#nd-page";
+export const DOCUMENT_BUSY_SELECTOR = '[aria-busy="true"]';
 
 export const IGNORED_DIRS = new Set([
   ".cache",

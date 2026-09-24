@@ -5,6 +5,7 @@ import {
   API_PAGE_PATH_PREFIX,
   API_PAGE_PREVIEW_PATH_PREFIX,
   IGNORED_DIRS,
+  PAGE_PDF_EXPORT_EXTENSION,
 } from "./constants";
 
 const HTML_TAG_PATTERN = /<[^>]*>/g;
@@ -54,6 +55,12 @@ export const pagePreviewPath = (slugPath: string) => {
 export const pageExportPath = (slugPath: string, format: PageExportFormat) => {
   return `${API_PAGE_EXPORT_PATH_PREFIX}/${encodeSlugPath(slugPath || "index")}.${PAGE_EXPORT_EXTENSION_BY_FORMAT[format]}`;
 };
+
+export const buildPagePdfExportPath = (slugPath: string) => {
+  return `${API_PAGE_EXPORT_PATH_PREFIX}/${encodeSlugPath(slugPath || "index")}.${PAGE_PDF_EXPORT_EXTENSION}`;
+};
+
+export const getPageExportName = (slugPath: string) => (slugPath || "index").replace(/\//g, "-");
 
 export const graphDataPath = () => API_GRAPH_JSON_PATH;
 

@@ -236,7 +236,7 @@ const runDoctorCommand = async ({ exclude, include, target }: DoctorCommandInput
   }
 };
 
-const runBuildCommand = async ({ dest, exclude, include, source, theme, title }: BuildCommandInput) => {
+const runBuildCommand = async ({ dest, exclude, include, pdf, source, theme, title }: BuildCommandInput) => {
   if (!source) throw new Error("build requires --source <path>");
   if (!dest) throw new Error("build requires --dest <dir>");
 
@@ -255,15 +255,18 @@ const runBuildCommand = async ({ dest, exclude, include, source, theme, title }:
     contentDir,
     filters,
     outputDir,
+    pdfPaper: pdf,
     singleFile,
     siteDescription: configResult.config.description,
     siteTitle,
     theme: theme ?? configResult.config.theme,
   });
 
+  const pdfSummary = pdf ? `, ${pdf} PDFs` : "";
+
   console.log(p.green(`\n  ${CLI_NAME} built ${siteTitle}`));
   console.log(p.cyan(`  ${buildResult.outputDir}`));
-  console.log(p.gray(`  ${buildResult.pageCount} page(s)\n`));
+  console.log(p.gray(`  ${buildResult.pageCount} page(s)${pdfSummary}\n`));
 };
 
 const runInitCommand = async ({ description, force, target, theme, title }: InitCommandInput) => {

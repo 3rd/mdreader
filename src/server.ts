@@ -13,6 +13,7 @@ import {
   API_SITE_EXPORT_PATH,
   API_TREE_JSON_PATH,
   API_TREE_LEGACY_PATH,
+  PDF_PAPER_QUERY_PARAM,
   SERVABLE_EXTENSIONS,
 } from "./constants";
 import { searchPages } from "./lib/search";
@@ -23,6 +24,7 @@ import {
   setEmbeddedAssets,
 } from "./lib/server/client-assets";
 import {
+  createPagePdfExporter,
   getGraphResponse,
   getPageExportResponse,
   getPagePreviewResponse,
@@ -31,6 +33,7 @@ import {
   getPageSlugFromRequest,
   getSearchExportResponse,
   getSiteExportResponse,
+  parsePagePdfExportPath,
   parseStaticPageExportPath,
 } from "./lib/server/exports";
 import { createLiveReloadChannel, type LiveReloadChannel } from "./lib/server/live-reload";
@@ -40,6 +43,8 @@ import { hasIgnoredPathSegment, normalizePathSlashes } from "./utils";
 
 export { buildStaticSite } from "./lib/server/static-build";
 export { getClientAssetStatus, setEmbeddedAssets };
+
+const IPV4_MAPPED_IPV6_PREFIX = "::ffff:";
 
 interface ServerOptions {
   contentDir: string;
@@ -61,6 +66,7 @@ interface MdreaderServer {
 
 interface ServerRuntime {
   clientAssetsStore: ClientAssetsStore;
+  exportPagePdf: ReturnType<typeof createPagePdfExporter>;
   liveReloadChannel: LiveReloadChannel;
   siteDataStore: SiteDataStore;
 }
@@ -86,6 +92,7 @@ interface RequestContext extends RequestSnapshot {
 const createServerRuntime = (): ServerRuntime => {
   return {
     clientAssetsStore: createClientAssetsStore(),
+    exportPagePdf: createPagePdfExporter(),
     liveReloadChannel: createLiveReloadChannel(),
     siteDataStore: createSiteDataStore(),
   };
@@ -178,6 +185,56 @@ const handlePagePreviewRoute = ({
 const handleGraphRoute = ({ pathname, response, graph }: RequestContext) => {
   if (pathname !== API_GRAPH_JSON_PATH) return false;
   return writePayload(response, getGraphResponse(graph));
+};
+
+const getRequestLocalOrigin = ({ socket }: IncomingMessage) => {
+  const { localAddress, localPort } = socket;
+
+  const isSocketConnected = localAddress !== undefined && localPort !== undefined;
+  if (!isSocketConnected) return null;
+
+  const isIpv4MappedAddress = localAddress.startsWith(IPV4_MAPPED_IPV6_PREFIX) && localAddress.includes(".");
+  const host = isIpv4MappedAddress ? localAddress.slice(IPV4_MAPPED_IPV6_PREFIX.length) : localAddress;
+  const urlHost = host.includes(":") ? `[${host}]` : host;
+  return `http://${urlHost}:${localPort}`;
+};
+
+const getRequestHostOrigin = ({ headers }: IncomingMessage) => {
+  const { host } = headers;
+  if (!host) return null;
+
+  const hostUrl = `http://${host}`;
+  if (!URL.canParse(hostUrl)) return null;
+
+  const url = new URL(hostUrl);
+  return url.host === host.toLowerCase() ? url.origin : null;
+};
+
+const handlePagePdfExportRoute = ({
+  pages,
+  pathname,
+  request,
+  response,
+  runtime,
+  searchParams,
+}: RequestContext) => {
+  const slugPath = parsePagePdfExportPath(pathname);
+  if (slugPath === null) return false;
+
+  const renderOrigin = getRequestLocalOrigin(request);
+  if (!renderOrigin) return true;
+
+  const pdfExportRequest = {
+    linkOrigin: getRequestHostOrigin(request) ?? renderOrigin,
+    pages,
+    paper: searchParams.get(PDF_PAPER_QUERY_PARAM),
+    renderOrigin,
+    slugPath,
+  };
+  runtime.exportPagePdf(pdfExportRequest).then((payload) => {
+    writeResponse(response, payload);
+  });
+  return true;
 };
 
 const handleStaticPageExportRoute = ({
@@ -311,6 +368,7 @@ export const startServer = async (options: ServerOptions): Promise<MdreaderServe
     if (handlePageRoute(requestContext)) return;
     if (handlePagePreviewRoute(requestContext)) return;
     if (handleGraphRoute(requestContext)) return;
+    if (handlePagePdfExportRoute(requestContext)) return;
     if (handleStaticPageExportRoute(requestContext)) return;
     if (handleExportRoute(requestContext)) return;
     if (handleSearchRoute(requestContext)) return;

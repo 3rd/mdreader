@@ -108,3 +108,132 @@
   -webkit-mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><path d='m15 9-6 6'/><path d='m9 9 6 6'/></svg>");
   mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><path d='m15 9-6 6'/><path d='m9 9 6 6'/></svg>");
 }
+
+/* print */
+@page {
+  margin: 18mm 16mm 20mm;
+
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    color: #6b7280;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 8pt;
+  }
+}
+
+@media print {
+  :root {
+    font-size: 10.5pt;
+    color-scheme: light;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body {
+    min-height: 0;
+    background: #fff;
+  }
+
+  body:has(> #nd-docs-layout) > :not(#nd-docs-layout),
+  #nd-docs-layout > :not(#nd-page),
+  #nd-page > .prose ~ *,
+  #nd-page figure.shiki button {
+    display: none !important;
+  }
+
+  #nd-docs-layout {
+    display: block;
+    min-height: 0;
+  }
+
+  #nd-page {
+    display: block;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  #nd-page * {
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  #nd-page h1 {
+    font-size: 2.1rem;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  #nd-page .prose {
+    font-size: 1rem;
+    line-height: 1.6;
+    font-kerning: normal;
+    font-variant-ligatures: common-ligatures;
+    text-rendering: optimizeLegibility;
+  }
+
+  #nd-page .prose :where(p, li, blockquote, dd) {
+    hyphens: auto;
+    orphans: 3;
+    widows: 3;
+  }
+
+  #nd-page .prose :where(h1, h2, h3, h4, h5, h6) {
+    break-after: avoid;
+    break-inside: avoid;
+  }
+
+  #nd-page .prose h2 {
+    font-size: 1.45rem;
+    margin-top: 1.8em;
+  }
+
+  #nd-page .prose h3 {
+    font-size: 1.2rem;
+  }
+
+  #nd-page .prose :where(a) {
+    text-decoration: underline;
+    text-decoration-thickness: 0.06em;
+    text-underline-offset: 0.15em;
+  }
+
+  #nd-page .prose :where(img, svg, figure, blockquote, .fd-callout) {
+    break-inside: avoid;
+  }
+
+  #nd-page .prose img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  #nd-page .prose :where(table) {
+    font-size: 0.9em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #nd-page .prose :where(thead) {
+    display: table-header-group;
+  }
+
+  #nd-page .prose :where(tr) {
+    break-inside: avoid;
+  }
+
+  #nd-page figure.shiki {
+    overflow: visible;
+    break-inside: avoid;
+  }
+
+  #nd-page figure.shiki > [role="region"] {
+    max-height: none;
+    overflow: visible;
+  }
+
+  #nd-page figure.shiki pre {
+    width: auto;
+    min-width: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}

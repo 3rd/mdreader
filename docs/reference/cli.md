@@ -62,8 +62,11 @@ When you serve or build a single Markdown file, mdreader uses the file basename 
 | `--theme <theme>` | Override the configured theme for this build |
 | `--include <glob>` | Only include Markdown files matching a glob pattern |
 | `--exclude <glob>` | Exclude Markdown files matching a glob pattern |
+| `--pdf <a4\|letter>` | Also export every page as a PDF on this paper size |
 
 The destination directory must not already exist, and it must live outside the docs source directory.
+
+`--pdf` renders pages with a locally installed Google Chrome, Chromium, Microsoft Edge, or Brave. Set `CHROME_PATH` to use a specific browser executable. Links to other pages become plain text in these PDFs because the deployed address is not known at build time; external links and same-page links stay clickable.
 
 ## Init Flags
 
@@ -143,6 +146,9 @@ Relative links to common content assets such as images, SVGs, PDFs, and video fi
 | `/api/export/page/<slug>.html` | Page as standalone HTML |
 | `/api/export/page/<slug>.json` | Page as JSON |
 | `/api/export/site.json` | Full site export as JSON |
+| `/api/export/page/<slug>.pdf` | Page as PDF; static builds include it only when built with `--pdf` |
+
+In serve mode, `/api/export/page/<slug>.pdf` accepts `?paper=a4` or `?paper=letter` and needs a locally installed Chrome or Chromium-based browser (or `CHROME_PATH`).
 
 Use the `.json` page-data route as the canonical form because static builds emit that file directly.
 

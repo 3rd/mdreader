@@ -385,7 +385,7 @@ export const HtmlContent = ({
       {previewState?.status === "ready" && previewState.payload ?
         <div
           ref={previewRef}
-          className="not-prose pointer-events-none fixed z-40 max-h-[calc(100vh-2rem)] w-[min(22rem,calc(100vw-2rem))] overflow-auto rounded-lg border border-fd-border bg-fd-background px-3 py-2 shadow-lg"
+          className="not-prose pointer-events-none fixed z-40 print:hidden max-h-[calc(100vh-2rem)] w-[min(22rem,calc(100vw-2rem))] overflow-auto rounded-lg border border-fd-border bg-fd-background px-3 py-2 shadow-lg"
           style={previewStyle}
         >
           <p className="m-0 text-[15px] font-semibold leading-5 text-fd-foreground">

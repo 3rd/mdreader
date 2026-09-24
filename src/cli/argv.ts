@@ -2,7 +2,7 @@ import cli from "gunsmith";
 import { z } from "zod";
 import packageJson from "../../package.json";
 import { CLI_NAME } from "../constants";
-import { isValidTheme, type Theme, VALID_THEMES } from "../types";
+import { isValidTheme, PDF_PAPER_FORMATS, type PdfPaperFormat, type Theme, VALID_THEMES } from "../types";
 
 const CLI_VERSION = packageJson.version;
 const CONTENT_TARGET_ARGS_SCHEMA = z.object({
@@ -39,6 +39,10 @@ const doctorOptionsSchema = z.object(globOptionsSchema);
 const buildOptionsSchema = z.object({
   ...globOptionsSchema,
   dest: z.string().optional().describe("Output directory for the built site (must not already exist)"),
+  pdf: z
+    .enum(PDF_PAPER_FORMATS)
+    .optional()
+    .describe("Also export every page as a PDF on this paper size (needs Chrome, Chromium, Edge, or Brave)"),
   source: z.string().optional().describe("Markdown file or docs directory to build"),
   theme: themeOptionSchema.describe("Override the configured theme for this build"),
   title: titleOptionSchema.describe("Override the site title for this build"),
@@ -73,6 +77,7 @@ export interface BuildCommandInput {
   dest?: string;
   exclude: string[];
   include: string[];
+  pdf?: PdfPaperFormat;
   source?: string;
   theme?: Theme;
   title?: string;
@@ -149,6 +154,7 @@ export const createMdreaderCli = (handlers: CliCommandHandlers) => {
     examples: [
       { command: `${CLI_NAME} build --source ./docs --dest ./mdreader-dist` },
       { command: `${CLI_NAME} build --source ./docs --dest ./release/mdreader-dist` },
+      { command: `${CLI_NAME} build --source ./docs --dest ./mdreader-dist --pdf a4` },
       {
         command: `${CLI_NAME} build --source ./docs --dest ./mdreader-dist --include 'guides/**' --exclude '**/drafts/**'`,
       },
@@ -158,6 +164,7 @@ export const createMdreaderCli = (handlers: CliCommandHandlers) => {
         dest: options.dest,
         exclude: options.exclude,
         include: options.include,
+        pdf: options.pdf,
         source: options.source,
         theme: parseThemeOption(options.theme),
         title: options.title,
@@ -197,6 +204,7 @@ export const createMdreaderCli = (handlers: CliCommandHandlers) => {
         description: options.description,
         force: options.force,
         target: args.target,
+
         theme: parseThemeOption(options.theme),
         title: options.title,
       }),
@@ -204,4 +212,3 @@ export const createMdreaderCli = (handlers: CliCommandHandlers) => {
 
   return app;
 };
-
